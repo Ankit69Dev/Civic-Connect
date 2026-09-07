@@ -14,6 +14,7 @@ import {
   Sprout,
   User,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function LoginPage() {
@@ -31,6 +32,7 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState("");
 
   const IMAGE_URL =
@@ -70,7 +72,6 @@ export default function LoginPage() {
           return;
         }
 
-        // auto sign-in right after registering
         const result = await signIn("credentials", {
           email,
           password,
@@ -82,7 +83,7 @@ export default function LoginPage() {
           setError("Account created — please log in.");
           setMode("login");
         } else {
-          router.push("/");
+          router.push("dashboard");
           router.refresh();
         }
       } catch {
@@ -92,7 +93,6 @@ export default function LoginPage() {
       return;
     }
 
-    // login
     if (!email || !password) {
       setError("Please enter your email and password.");
       return;
@@ -111,24 +111,49 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/");
+    router.push("/dashboard");
     router.refresh();
   };
 
   const handleGoogleSignIn = () => {
-    signIn("google", { callbackUrl: "/" });
+    signIn("google", { callbackUrl: "/dashboard" });
   };
 
   const handlePhoneLogin = () => {
     setOtpSent(true);
   };
 
+  // ── Demo admin shortcut ──
+  // Signs in with the seeded admin account's REAL credentials — still goes
+  // through the same bcrypt check as any other login, just skips typing.
+  // Only renders when NEXT_PUBLIC_ENABLE_DEMO_LOGIN=true, so it's easy to
+  // turn off (or never turn on) for a production deploy.
+  const demoLoginEnabled = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true";
+
+  const handleDemoAdminLogin = async () => {
+    resetMessages();
+    setDemoLoading(true);
+
+    const result = await signIn("credentials", {
+      email: process.env.NEXT_PUBLIC_DEMO_ADMIN_EMAIL || "admin@civicconnect.in",
+      password: process.env.NEXT_PUBLIC_DEMO_ADMIN_PASSWORD || "",
+      redirect: false,
+    });
+
+    setDemoLoading(false);
+
+    if (result?.error) {
+      setError("Demo admin login failed — check the seeded account exists.");
+      return;
+    }
+
+    router.push("/dashboard");
+    router.refresh();
+  };
+
   return (
     <main className="min-h-screen bg-mist">
       <div className="grid min-h-screen lg:grid-cols-2">
-        {/* ================================================= */}
-        {/* LEFT SIDE — AUTH CARD */}
-        {/* ================================================= */}
         <section className="relative flex min-h-screen items-center justify-center px-6 py-10 sm:px-10 lg:px-12 xl:px-20">
           <a
             href="/"
@@ -151,6 +176,25 @@ export default function LoginPage() {
               </span>
             </a>
 
+            {/* demo admin banner — dev/staging only */}
+            {demoLoginEnabled && (
+              <button
+                type="button"
+                onClick={handleDemoAdminLogin}
+                disabled={demoLoading}
+                className="mb-6 flex w-full items-center justify-center gap-2 rounded-xl border border-amber-300 bg-amber-50 py-3 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 disabled:opacity-60"
+              >
+                {demoLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <ShieldCheck className="h-4 w-4" />
+                    Continue as Admin (Demo)
+                  </>
+                )}
+              </button>
+            )}
+
             <div className="mb-7">
               <p className="mb-2 text-sm font-medium text-civic-green">
                 Welcome to CivicConnect
@@ -165,7 +209,6 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {/* Login / Register Toggle */}
             <div className="mb-7 flex rounded-xl bg-ink/5 p-1">
               <button
                 onClick={() => {
@@ -193,7 +236,6 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {/* Login Method */}
             {mode === "login" && (
               <div className="mb-5 flex gap-2">
                 <button
@@ -233,7 +275,6 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* EMAIL LOGIN / REGISTER */}
             {(mode === "register" || loginMethod === "email") && (
               <div className="space-y-4">
                 {mode === "register" && (
@@ -342,7 +383,6 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* PHONE LOGIN — still a UI-only dummy flow */}
             {mode === "login" && loginMethod === "phone" && (
               <div className="space-y-4">
                 {!otpSent ? (
@@ -432,7 +472,6 @@ export default function LoginPage() {
           </div>
         </section>
 
-        {/* RIGHT SIDE — IMAGE (unchanged from your version) */}
         <section className="relative hidden overflow-hidden lg:block">
           <img
             src={IMAGE_URL}
