@@ -5,10 +5,10 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const isProtected = req.nextUrl.pathname.startsWith("/dashboard");
 
-  if (isProtected && !isLoggedIn) {
-    const signInUrl = new URL("/auth", req.nextUrl.origin);
-    return NextResponse.redirect(signInUrl);
-  }
+//   if (isProtected && !isLoggedIn) {
+//     // const signInUrl = new URL("/login", req.nextUrl.origin);
+//     return NextResponse.redirect(signInUrl);
+//   }
 });
 
 export const config = {

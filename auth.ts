@@ -7,7 +7,7 @@ import { sql, type DbUser } from "@/lib/db";
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: {
-    signIn: "/auth",
+    signIn: "/login",
   },
   providers: [
     Google, // reads AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET automatically
