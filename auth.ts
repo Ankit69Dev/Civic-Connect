@@ -1,8 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
-import bcrypt from "bcryptjs";
-import { sql, type DbUser } from "@/lib/db";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
@@ -10,7 +8,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/login",
   },
   providers: [
-    Google, // reads AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET automatically
+    Google, // still needs AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET to work
 
     Credentials({
       name: "Credentials",
@@ -23,55 +21,53 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = credentials?.password as string | undefined;
         if (!email || !password) return null;
 
-        const rows = await sql`
-          SELECT * FROM users WHERE email = ${email.toLowerCase()} LIMIT 1
-        `;
-        const user = rows[0] as DbUser | undefined;
-        if (!user || !user.password_hash) return null;
+        // ── TEMPORARY: hardcoded demo accounts, no database yet ──
+        // Swap this block for a real Neon/Prisma lookup once your DB is set up.
+        const demoUsers = [
+          {
+            id: "demo-admin",
+            name: "Admin",
+            email: process.env.DEMO_ADMIN_EMAIL,
+            password: process.env.DEMO_ADMIN_PASSWORD,
+            role: "admin",
+          },
+          {
+            id: "demo-citizen",
+            name: "Demo Citizen",
+            email: process.env.DEMO_CITIZEN_EMAIL,
+            password: process.env.DEMO_CITIZEN_PASSWORD,
+            role: "citizen",
+          },
+        ];
 
-        const valid = await bcrypt.compare(password, user.password_hash);
-        if (!valid) return null;
+        const match = demoUsers.find(
+          (u) => u.email && u.email.toLowerCase() === email.toLowerCase()
+        );
+
+        if (!match || match.password !== password) return null;
 
         return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          image: user.image,
+          id: match.id,
+          name: match.name,
+          email: match.email,
+          role: match.role,
         };
       },
     }),
   ],
 
   callbacks: {
-    // Runs on every sign-in, including Google — upsert the user into Neon.
-    async signIn({ user, account }) {
-      if (account?.provider === "google") {
-        if (!user.email) return false;
-
-        const existing = await sql`
-          SELECT id FROM users WHERE email = ${user.email.toLowerCase()} LIMIT 1
-        `;
-
-        if (existing.length === 0) {
-          await sql`
-            INSERT INTO users (name, email, image, provider)
-            VALUES (${user.name ?? null}, ${user.email.toLowerCase()}, ${user.image ?? null}, 'google')
-          `;
-        }
-      }
-      return true;
-    },
-
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.role = (user as { role?: string }).role ?? "citizen";
       }
       return token;
     },
-
     async session({ session, token }) {
-      if (session.user && token.id) {
-        (session.user as { id?: string }).id = token.id as string;
+      if (session.user) {
+        (session.user as { id?: string; role?: string }).id = token.id as string;
+        (session.user as { id?: string; role?: string }).role = token.role as string;
       }
       return session;
     },
