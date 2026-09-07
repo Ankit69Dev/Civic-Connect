@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
-import { sql, type DbUser } from "@/lib/db";
+// import { sql, type DbUser } from "@/lib/db";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
@@ -23,10 +23,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = credentials?.password as string | undefined;
         if (!email || !password) return null;
 
-        const rows = await sql`
-          SELECT * FROM users WHERE email = ${email.toLowerCase()} LIMIT 1
-        `;
-        const user = rows[0] as DbUser | undefined;
+        // const rows = await sql`
+        //   SELECT * FROM users WHERE email = ${email.toLowerCase()} LIMIT 1
+        // `;
+        // const user = rows[0] as DbUser | undefined;
         if (!user || !user.password_hash) return null;
 
         const valid = await bcrypt.compare(password, user.password_hash);

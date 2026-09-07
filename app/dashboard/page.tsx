@@ -27,6 +27,7 @@ import {
   Zap,
   LogOut,
 } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
@@ -185,6 +186,7 @@ export default function DashboardPage() {
           <SidebarItem
             icon={Plus}
             label="Report Issue"
+            href="/report"
           />
 
           <SidebarItem
@@ -346,10 +348,10 @@ export default function DashboardPage() {
                 Together we can build a cleaner, safer and better city.
               </p>
 
-              <button className="mt-4 inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-blue-700">
+              <Link href="/report" className="mt-4 inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-blue-700">
                 <Plus className="h-4 w-4" />
                 Report an Issue
-              </button>
+              </Link>
             </div>
 
             {/* Impact */}
@@ -820,15 +822,17 @@ function SidebarItem({
   label,
   active = false,
   badge,
+  href = "#",
 }: {
   icon: LucideIcon;
   label: string;
   active?: boolean;
   badge?: string;
+  href?: string;
 }) {
   return (
     <a
-      href="#"
+      href={href}
       className={`relative mb-1 flex items-center gap-3 rounded-lg px-4 py-3 text-[12px] font-semibold transition ${
         active
           ? "bg-blue-50 text-blue-600"
