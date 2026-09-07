@@ -1,26 +1,72 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-navy: #0B2540;
+  --color-ink: #101826;
+  --color-mist: #F5F8FC;
+
+  --color-civic-blue: #2563EB;
+  --color-civic-green: #16A34A;
+  --color-civic-orange: #F59E0B;
+  --color-civic-purple: #7C3AED;
+  --color-civic-cyan: #0891B2;
+  --color-civic-rose: #E11D48;
+
+  --font-display: var(--font-heading-family);
+  --font-body: var(--font-body-family);
+
+  --shadow-panel: 0 24px 60px -20px rgba(11, 37, 64, 0.35);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-mist);
+  color: var(--color-ink);
+  font-family: var(--font-body);
 }
+
+::selection {
+  background: #2563eb;
+  color: white;
+}
+
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rise-1 { animation: rise-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both; }
+.animate-rise-2 { animation: rise-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both; }
+.animate-rise-3 { animation: rise-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both; }
+.animate-rise-4 { animation: rise-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both; }
+
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.6; }
+}
+.pulse-dot { animation: pulse-dot 1.8s ease-in-out infinite; }
