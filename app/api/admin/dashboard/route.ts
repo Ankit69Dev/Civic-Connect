@@ -4,285 +4,175 @@ import { sql } from "@/lib/db";
 
 export async function GET() {
   try {
+    // Get logged-in user
     const session = await auth();
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        {
+          error: "Unauthorized. Please log in.",
+        },
         { status: 401 }
       );
     }
 
-    const userId = session.user.id;
-
-    // -----------------------------------------
-    // CURRENT USER
-    // -----------------------------------------
-
-    const users = await sql`
+    // Get admin from database
+    const admins = await sql`
       SELECT
         id,
         name,
         email,
         role
       FROM users
-      WHERE id = ${userId}
+      WHERE id = ${session.user.id}
       LIMIT 1
     `;
 
-    if (users.length === 0) {
+    if (admins.length === 0) {
       return NextResponse.json(
-        { error: "User not found" },
+        {
+          error: "Admin user not found.",
+        },
         { status: 404 }
       );
     }
 
-    const user = users[0];
+    const admin = admins[0];
 
-    // -----------------------------------------
-    // MY COMPLAINTS
-    // -----------------------------------------
+    // Check role from DATABASE
+    if (admin.role !== "admin") {
+      return NextResponse.json(
+        {
+          error: "Access denied. Admin privileges required.",
+        },
+        { status: 403 }
+      );
+    }
 
-    const complaints = await sql`
+    // =====================================================
+    // STATS
+    // =====================================================
+
+    const statsResult = await sql`
+      SELECT
+        COUNT(*)::int AS total,
+
+        COUNT(*) FILTER (
+          WHERE status = 'reported'
+        )::int AS reported,
+
+        COUNT(*) FILTER (
+          WHERE status = 'in_progress'
+        )::int AS "inProgress",
+
+        COUNT(*) FILTER (
+          WHERE status = 'resolved'
+        )::int AS resolved,
+
+        COUNT(*) FILTER (
+          WHERE priority = 'critical'
+        )::int AS critical
+
+      FROM issues
+    `;
+
+    const stats = statsResult[0] || {
+      total: 0,
+      reported: 0,
+      inProgress: 0,
+      resolved: 0,
+      critical: 0,
+    };
+
+    // =====================================================
+    // ALL ISSUES
+    // =====================================================
+
+    const issues = await sql`
       SELECT
         i.id,
         i.title,
         i.description,
-        d.name AS category,
-        i.address,
-        i.latitude,
-        i.longitude,
-        i.priority,
-        i.status,
-        i.created_at,
-        i.resolved_at
-      FROM issues i
 
-      LEFT JOIN departments d
-        ON d.id = i.department_id
-
-      WHERE i.reporter_id = ${userId}
-
-      ORDER BY i.created_at DESC
-
-      LIMIT 10
-    `;
-
-    // -----------------------------------------
-    // ALL COMMUNITY ISSUES
-    //
-    // These are used for the Leaflet map.
-    // We only return issues that have coordinates.
-    // -----------------------------------------
-
-    const mapIssues = await sql`
-      SELECT
-        i.id,
-        i.title,
-        i.description,
-        d.name AS category,
-        i.address,
-        i.latitude,
-        i.longitude,
-        i.priority,
-        i.status,
-        i.created_at
-      FROM issues i
-
-      LEFT JOIN departments d
-        ON d.id = i.department_id
-
-      WHERE
-        i.latitude IS NOT NULL
-        AND i.longitude IS NOT NULL
-
-      ORDER BY i.created_at DESC
-
-      LIMIT 100
-    `;
-
-    // -----------------------------------------
-    // TOTAL COMPLAINTS
-    // -----------------------------------------
-
-    const complaintsResult = await sql`
-      SELECT COUNT(*)::int AS count
-      FROM issues
-      WHERE reporter_id = ${userId}
-    `;
-
-    // -----------------------------------------
-    // ISSUES SUPPORTED
-    // -----------------------------------------
-
-    const supportedResult = await sql`
-      SELECT COUNT(*)::int AS count
-      FROM issue_upvotes
-      WHERE user_id = ${userId}
-    `;
-
-    // -----------------------------------------
-    // RESOLVED COMPLAINTS
-    // -----------------------------------------
-
-    const resolvedResult = await sql`
-      SELECT COUNT(*)::int AS count
-      FROM issues
-      WHERE
-        reporter_id = ${userId}
-        AND status = 'resolved'
-    `;
-
-    // -----------------------------------------
-    // AVERAGE RESOLUTION TIME
-    // -----------------------------------------
-
-    const resolutionResult = await sql`
-      SELECT
         COALESCE(
-          AVG(
-            EXTRACT(
-              EPOCH FROM (
-                resolved_at - created_at
-              )
-            ) / 86400
-          ),
-          0
-        ) AS average_days
+          d.name,
+          'General Issue'
+        ) AS category,
 
-      FROM issues
+        COALESCE(
+          i.address,
+          'Location unavailable'
+        ) AS location,
 
-      WHERE
-        reporter_id = ${userId}
-        AND status = 'resolved'
-        AND resolved_at IS NOT NULL
+        i.priority,
+        i.status,
+
+        COALESCE(
+          u.name,
+          'Unknown Citizen'
+        ) AS "reporterName",
+
+        COALESCE(
+          u.email,
+          'No email'
+        ) AS "reporterEmail",
+
+        i.created_at AS "createdAt"
+
+      FROM issues i
+
+      LEFT JOIN departments d
+        ON d.id = i.department_id
+
+      LEFT JOIN users u
+        ON u.id = i.reporter_id
+
+      ORDER BY i.created_at DESC
     `;
 
-    const averageDays = Number(
-      resolutionResult[0]?.average_days ?? 0
+    console.log(
+      "ADMIN DASHBOARD - TOTAL ISSUES:",
+      issues.length
     );
 
-    // -----------------------------------------
-    // RESPONSE
-    // -----------------------------------------
+    console.log(
+      "ADMIN DASHBOARD - ISSUES:",
+      issues
+    );
 
     return NextResponse.json({
-      user: {
-        id: String(user.id),
-        name: user.name || "Citizen",
-        email: user.email || "",
-        role: user.role || "citizen",
+      admin: {
+        id: admin.id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
       },
 
       stats: {
-        complaints: Number(
-          complaintsResult[0]?.count ?? 0
-        ),
-
-        supported: Number(
-          supportedResult[0]?.count ?? 0
-        ),
-
-        resolved: Number(
-          resolvedResult[0]?.count ?? 0
-        ),
-
-        averageResolutionTime:
-          averageDays > 0
-            ? `${averageDays.toFixed(1)} days`
-            : "0 days",
+        total: Number(stats.total) || 0,
+        reported: Number(stats.reported) || 0,
+        inProgress:
+          Number(stats.inProgress) || 0,
+        resolved:
+          Number(stats.resolved) || 0,
+        critical:
+          Number(stats.critical) || 0,
       },
 
-      complaints: complaints.map((complaint) => ({
-        id: String(complaint.id),
-
-        title: complaint.title,
-
-        description:
-          complaint.description || "",
-
-        category:
-          complaint.category || "Civic Issue",
-
-        location:
-          complaint.address ||
-          "Location not provided",
-
-        latitude:
-          complaint.latitude !== null
-            ? Number(complaint.latitude)
-            : null,
-
-        longitude:
-          complaint.longitude !== null
-            ? Number(complaint.longitude)
-            : null,
-
-        priority:
-          complaint.priority || "normal",
-
-        status:
-          complaint.status || "reported",
-
-        createdAt:
-          complaint.created_at,
-
-        resolvedAt:
-          complaint.resolved_at,
-      })),
-
-      // ---------------------------------------
-      // MAP ISSUES
-      // ---------------------------------------
-
-      mapIssues: mapIssues.map((issue) => ({
-        id: String(issue.id),
-
-        title: issue.title,
-
-        description:
-          issue.description || "",
-
-        category:
-          issue.category || "Civic Issue",
-
-        location:
-          issue.address ||
-          "Location not provided",
-
-        latitude:
-          Number(issue.latitude),
-
-        longitude:
-          Number(issue.longitude),
-
-        priority:
-          issue.priority || "normal",
-
-        status:
-          issue.status || "reported",
-
-        createdAt:
-          issue.created_at,
-      })),
+      issues,
     });
-
   } catch (error) {
     console.error(
-      "Dashboard API error:",
+      "ADMIN DASHBOARD API ERROR:",
       error
     );
 
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Failed to load dashboard data",
+          "Failed to load admin dashboard.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
