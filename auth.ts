@@ -1,17 +1,12 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
-<<<<<<< HEAD
-import bcrypt from "bcryptjs";
-// import { sql, type DbUser } from "@/lib/db";
-=======
->>>>>>> 61e8f01b8008084c293f9ab9212a8bf946675cc2
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
-  },
+  },      
   providers: [
     Google, // still needs AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET to work
 
@@ -26,13 +21,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = credentials?.password as string | undefined;
         if (!email || !password) return null;
 
-<<<<<<< HEAD
-        // const rows = await sql`
-        //   SELECT * FROM users WHERE email = ${email.toLowerCase()} LIMIT 1
-        // `;
-        // const user = rows[0] as DbUser | undefined;
-        if (!user || !user.password_hash) return null;
-=======
         // ── TEMPORARY: hardcoded demo accounts, no database yet ──
         // Swap this block for a real Neon/Prisma lookup once your DB is set up.
         const demoUsers = [
@@ -51,7 +39,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             role: "citizen",
           },
         ];
->>>>>>> 61e8f01b8008084c293f9ab9212a8bf946675cc2
 
         const match = demoUsers.find(
           (u) => u.email && u.email.toLowerCase() === email.toLowerCase()

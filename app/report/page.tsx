@@ -9,10 +9,17 @@ import {
   ChevronDown,
   CircleAlert,
   FileText,
+  Home,
+  Map,
   MapPin,
+  Menu,
   Navigation,
   Send,
   Upload,
+  User,
+  Bell,
+  Plus,
+  X,
 } from "lucide-react";
 
 const categories = [
@@ -29,6 +36,7 @@ export default function ReportPage() {
   const [category, setCategory] = useState("");
   const [priority, setPriority] = useState("Medium");
   const [submitted, setSubmitted] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,8 +45,22 @@ export default function ReportPage() {
 
   if (submitted) {
     return (
-      <main className="min-h-screen bg-[#f6f9fc] px-4 py-6 text-[#17345f] sm:px-8 lg:px-12">
-        <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-3xl items-center justify-center">
+      <main className="min-h-screen bg-[#f6f9fc] text-[#17345f]">
+        <ReportSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="lg:pl-[220px]">
+          <header className="sticky top-0 z-30 h-[72px] border-b border-[#dce7f2] bg-white/90 backdrop-blur-xl">
+            <div className="flex h-full items-center gap-4 px-4 sm:px-6 lg:px-5">
+              <button onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 hover:bg-[#f1f5f9] lg:hidden" aria-label="Open navigation">
+                <Menu className="h-5 w-5" />
+              </button>
+              <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-semibold text-[#55718d] transition hover:text-blue-600">
+                <ArrowLeft className="h-4 w-4" />
+                Back to dashboard
+              </Link>
+            </div>
+          </header>
+          <div className="flex min-h-[calc(100vh-72px)] items-center justify-center px-4 py-6 sm:px-8 lg:px-12">
+            <div className="w-full max-w-3xl">
           <section className="w-full rounded-2xl border border-[#dce7f2] bg-white p-8 text-center shadow-sm sm:p-12">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
               <CheckCircle2 className="h-9 w-9" />
@@ -61,6 +83,8 @@ export default function ReportPage() {
               </button>
             </div>
           </section>
+            </div>
+          </div>
         </div>
       </main>
     );
@@ -68,18 +92,23 @@ export default function ReportPage() {
 
   return (
     <main className="min-h-screen bg-[#f6f9fc] text-[#17345f]">
-      <header className="border-b border-[#dce7f2] bg-white">
-        <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-4 sm:px-8 lg:px-12">
+      <ReportSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="lg:pl-[220px]">
+        <header className="sticky top-0 z-30 h-[72px] border-b border-[#dce7f2] bg-white/90 backdrop-blur-xl">
+          <div className="flex h-full items-center gap-4 px-4 sm:px-6 lg:px-5">
+            <button onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 hover:bg-[#f1f5f9] lg:hidden" aria-label="Open navigation">
+              <Menu className="h-5 w-5" />
+            </button>
           <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-semibold text-[#55718d] transition hover:text-blue-600">
             <ArrowLeft className="h-4 w-4" />
             Back to dashboard
           </Link>
-          <div className="hidden items-center gap-2 text-xs font-semibold text-[#7890a7] sm:flex">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-blue-600">1</span>
-            <span>Report issue</span>
+            <div className="ml-auto hidden items-center gap-2 text-xs font-semibold text-[#7890a7] sm:flex">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-blue-600">1</span>
+              <span>Report issue</span>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       <div className="mx-auto max-w-7xl px-4 py-7 sm:px-8 lg:px-12 lg:py-10">
         <div className="mb-8 max-w-2xl">
@@ -141,6 +170,55 @@ export default function ReportPage() {
           </aside>
         </form>
       </div>
+      </div>
     </main>
   );
+}
+
+function ReportSidebar({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      {open && <div className="fixed inset-0 z-40 bg-navy/30 backdrop-blur-sm lg:hidden" onClick={onClose} />}
+      <aside className={`fixed inset-y-0 left-0 z-50 flex w-[220px] flex-col border-r border-[#dce7f2] bg-white transition-transform duration-300 lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="flex h-[72px] items-center border-b border-[#edf2f7] px-5">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center"><div className="relative"><div className="h-7 w-4 rotate-45 rounded-full bg-civic-green" /><div className="absolute -bottom-1 left-1 h-5 w-3 -rotate-12 rounded-full bg-blue-500" /></div></div>
+            <div><p className="font-display text-[16px] font-bold leading-none text-[#17345f]">Team SparkByte</p><p className="mt-1 text-[8px] font-medium text-[#6c8bab]">Cleaner Cities, Brighter Future</p></div>
+          </Link>
+          <button onClick={onClose} className="ml-auto lg:hidden" aria-label="Close navigation"><X className="h-5 w-5" /></button>
+        </div>
+        <nav className="flex-1 px-3 py-5">
+          <ReportNavItem icon={Home} label="Home" href="/dashboard" />
+          <ReportNavItem icon={Plus} label="Report Issue" href="/report" active />
+          <ReportNavItem icon={Map} label="Explore Map" href="/explore-map" />
+          <ReportNavItem icon={FileText} label="My Complaints" href="/my-complaints" />
+          <ReportNavItem icon={Bell} label="Notifications" href="/notifications" badge="3" />
+          <ReportNavItem icon={User} label="Profile" />
+        </nav>
+        <div className="relative overflow-hidden border-t border-[#edf2f7] px-5 py-6"><div className="absolute -bottom-8 -left-4 opacity-20"><div className="h-20 w-20 rounded-full bg-civic-green" /></div><p className="relative text-xs font-semibold text-civic-green">Small actions</p><p className="relative mt-1 text-sm leading-relaxed text-[#53708e]">create cleaner,<br />safer and better<br />cities for all.</p></div>
+      </aside>
+    </>
+  );
+}
+
+function ReportNavItem({
+  icon: Icon,
+  label,
+  href = "#",
+  active = false,
+  badge,
+}: {
+  icon: typeof Home;
+  label: string;
+  href?: string;
+  active?: boolean;
+  badge?: string;
+}) {
+  return <a href={href} className={`relative mb-1 flex items-center gap-3 rounded-lg px-4 py-3 text-[12px] font-semibold transition ${active ? "bg-blue-50 text-blue-600" : "text-[#344e6b] hover:bg-[#f5f8fb]"}`}><Icon className="h-[17px] w-[17px]" /><span>{label}</span>{badge && <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] text-white">{badge}</span>}</a>;
 }

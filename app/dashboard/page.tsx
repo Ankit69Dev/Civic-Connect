@@ -192,16 +192,19 @@ export default function DashboardPage() {
           <SidebarItem
             icon={Map}
             label="Explore Map"
+            href="/explore-map"
           />
 
           <SidebarItem
             icon={FileText}
             label="My Complaints"
+            href="/my-complaints"
           />
 
           <SidebarItem
             icon={Bell}
             label="Notifications"
+            href="/notifications"
             badge="3"
           />
 
@@ -749,9 +752,9 @@ export default function DashboardPage() {
                       and make an impact together!
                     </p>
 
-                    <button className="mt-3 text-[11px] font-bold text-blue-600">
+                    <Link href="/explore-map" className="mt-3 inline-block text-[11px] font-bold text-blue-600">
                       Explore Map →
-                    </button>
+                    </Link>
                   </div>
                 </div>
               </div>
