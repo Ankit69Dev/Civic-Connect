@@ -1,1150 +1,1504 @@
 "use client";
 
 import {
-  AlertCircle,
   Bell,
-  CheckCircle2,
   ChevronDown,
-  ChevronRight,
-  Clock3,
-  Droplets,
+  CheckCircle2,
+  Clock,
   FileText,
   Home,
-  Lightbulb,
   Map,
   MapPin,
   Menu,
+  MessageSquare,
   Plus,
   Search,
   Settings,
-  ShieldCheck,
   ThumbsUp,
-  Trash2,
   User,
-  Users,
-  Waves,
   X,
-  Zap,
-  LogOut,
+  AlertCircle,
 } from "lucide-react";
-import { useState } from "react";
-import type { LucideIcon } from "lucide-react";
 
-const complaints = [
-  {
-    id: "#SPK-10231",
-    issue: "Large pothole on road",
-    category: "Roads",
-    location: "Gandhi Maidan, Patna",
-    priority: "High",
-    status: "In Progress",
-    date: "2 days ago",
-  },
-  {
-    id: "#SPK-10187",
-    issue: "Garbage not collected",
-    category: "Garbage & Waste",
-    location: "Kankarbagh, Patna",
-    priority: "Medium",
-    status: "Assigned",
-    date: "3 days ago",
-  },
-  {
-    id: "#SPK-10156",
-    issue: "Water leakage",
-    category: "Water Supply",
-    location: "Boring Road, Patna",
-    priority: "Medium",
-    status: "Open",
-    date: "4 days ago",
-  },
-  {
-    id: "#SPK-10122",
-    issue: "Streetlight not working",
-    category: "Streetlights",
-    location: "Ashok Rajpath, Patna",
-    priority: "Low",
-    status: "Resolved",
-    date: "5 days ago",
-  },
-  {
-    id: "#SPK-10098",
-    issue: "Drainage blockage",
-    category: "Drainage",
-    location: "Rajendra Nagar, Patna",
-    priority: "High",
-    status: "In Progress",
-    date: "6 days ago",
-  },
-];
+import { useEffect, useState } from "react";
 
-const notifications = [
-  {
-    icon: CheckCircle2,
-    title: "Your complaint #SPK-10231",
-    text: "has been assigned to Road Department.",
-    time: "2 hours ago",
-    type: "green",
-  },
-  {
-    icon: CheckCircle2,
-    title: "Your issue has been marked",
-    text: "as resolved. Please verify.",
-    time: "5 hours ago",
-    type: "blue",
-  },
-  {
-    icon: AlertCircle,
-    title: "SLA warning: Your complaint",
-    text: "#SPK-10187 is approaching deadline.",
-    time: "1 day ago",
-    type: "orange",
-  },
-  {
-    icon: ThumbsUp,
-    title: "Thank you for supporting",
-    text: "Pothole near Gandhi Maidan.",
-    time: "1 day ago",
-    type: "purple",
-  },
-];
+import dynamic from "next/dynamic";
 
-const categories = [
-  { name: "Roads", icon: AlertCircle, type: "red" },
-  { name: "Garbage", icon: Trash2, type: "green" },
-  { name: "Water", icon: Droplets, type: "blue" },
-  { name: "Electricity", icon: Zap, type: "orange" },
-  { name: "Drainage", icon: Waves, type: "purple" },
-  { name: "Streetlights", icon: Lightbulb, type: "cyan" },
-  { name: "Public Safety", icon: ShieldCheck, type: "pink" },
-  { name: "Other", icon: MoreIcon, type: "gray" },
-];
+import "leaflet/dist/leaflet.css";
+import { useRouter } from "next/navigation";
+
+
+// =========================================================
+// LEAFLET MAP
+//
+// Dynamic import is important because Leaflet needs the browser.
+// =========================================================
+
+const CommunityMap = dynamic(
+  () => import("@/app/dashboard/CommunityMap"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[360px] items-center justify-center bg-slate-100">
+        <div className="text-center">
+          <Map
+            size={32}
+            className="mx-auto text-slate-400"
+          />
+
+          <p className="mt-3 text-sm font-medium text-slate-600">
+            Loading map...
+          </p>
+        </div>
+      </div>
+    ),
+  }
+);
+
+
+// =========================================================
+// TYPES
+// =========================================================
+
+type Complaint = {
+  id: string;
+  title: string;
+  description?: string;
+  category: string;
+  location: string;
+  latitude: number | null;
+  longitude: number | null;
+  priority: string;
+  status: string;
+  createdAt: string;
+  resolvedAt?: string | null;
+};
+
+type MapIssue = {
+  id: string;
+  title: string;
+  description?: string;
+  category: string;
+  location: string;
+  latitude: number;
+  longitude: number;
+  priority: string;
+  status: string;
+  createdAt: string;
+};
+
+type DashboardData = {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+
+  stats: {
+    complaints: number;
+    supported: number;
+    resolved: number;
+    averageResolutionTime: string;
+  };
+
+  complaints: Complaint[];
+
+  mapIssues: MapIssue[];
+};
+
+
+// =========================================================
+// DEFAULT DATA
+// =========================================================
+
+const defaultData: DashboardData = {
+  user: {
+    id: "",
+    name: "Citizen",
+    email: "",
+    role: "citizen",
+  },
+
+  stats: {
+    complaints: 0,
+    supported: 0,
+    resolved: 0,
+    averageResolutionTime: "0 days",
+  },
+
+  complaints: [],
+
+  mapIssues: [],
+};
+
+
+// =========================================================
+// DASHBOARD
+// =========================================================
 
 export default function DashboardPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const [sidebarOpen, setSidebarOpen] =
+    useState(false);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [data, setData] =
+    useState<DashboardData>(defaultData);
+
+  // User's browser location
+  const [userLocation, setUserLocation] =
+    useState<{
+      latitude: number;
+      longitude: number;
+    } | null>(null);
+
+  const [locationName, setLocationName] =
+    useState("Your Location");
+
+
+  // =======================================================
+  // LOAD DASHBOARD
+  // =======================================================
+
+  useEffect(() => {
+    loadDashboard();
+    detectLocation();
+  }, []);
+
+
+  async function loadDashboard() {
+
+    try {
+
+      setLoading(true);
+
+      const response =
+        await fetch("/api/dashboard", {
+          method: "GET",
+          cache: "no-store",
+        });
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result?.error ||
+          "Failed to load dashboard"
+        );
+      }
+
+      setData(result);
+
+    } catch (error) {
+
+      console.error(
+        "Dashboard loading error:",
+        error
+      );
+
+    } finally {
+
+      setLoading(false);
+
+    }
+  }
+
+
+  // =======================================================
+  // DETECT USER LOCATION
+  // =======================================================
+
+  function detectLocation() {
+
+    if (!navigator.geolocation) {
+
+      setLocationName(
+        "Location unavailable"
+      );
+
+      return;
+    }
+
+
+    navigator.geolocation.getCurrentPosition(
+
+      async (position) => {
+
+        const latitude =
+          position.coords.latitude;
+
+        const longitude =
+          position.coords.longitude;
+
+
+        setUserLocation({
+          latitude,
+          longitude,
+        });
+
+
+        // Try reverse geocoding
+        try {
+
+          const response =
+            await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+            );
+
+          if (!response.ok) {
+            return;
+          }
+
+          const result =
+            await response.json();
+
+          const address =
+            result?.address;
+
+          const city =
+            address?.city ||
+            address?.town ||
+            address?.village ||
+            address?.municipality;
+
+          const state =
+            address?.state;
+
+          if (city && state) {
+
+            setLocationName(
+              `${city}, ${state}`
+            );
+
+          } else if (city) {
+
+            setLocationName(city);
+
+          } else {
+
+            setLocationName(
+              "Your Location"
+            );
+
+          }
+
+        } catch {
+
+          setLocationName(
+            "Your Location"
+          );
+
+        }
+
+      },
+
+      () => {
+
+        setLocationName(
+          "Location permission denied"
+        );
+
+      },
+
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000,
+      }
+    );
+  }
+
+
+  const firstName =
+    data.user.name
+      ?.split(" ")[0] ||
+    "Citizen";
+    const router = useRouter();
+
 
   return (
-    <main className="min-h-screen bg-[#f6f9fc] text-[#17345f]">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
 
-      {/* ================= MOBILE OVERLAY ================= */}
+
+      {/* ===================================================
+          MOBILE OVERLAY
+      =================================================== */}
 
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-navy/30 backdrop-blur-sm lg:hidden"
-          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={() =>
+            setSidebarOpen(false)
+          }
         />
       )}
 
-      {/* ================= SIDEBAR ================= */}
+
+      {/* ===================================================
+          SIDEBAR
+      =================================================== */}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[220px] flex-col border-r border-[#dce7f2] bg-white transition-transform duration-300 lg:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed left-0 top-0 z-50 flex h-screen w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-300 ${
+          sidebarOpen
+            ? "translate-x-0"
+            : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        {/* Logo */}
 
-        <div className="flex h-[72px] items-center border-b border-[#edf2f7] px-5">
-          <a href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center">
-              <div className="relative">
-                <div className="h-7 w-4 rotate-45 rounded-full bg-civic-green" />
-                <div className="absolute -bottom-1 left-1 h-5 w-3 -rotate-12 rounded-full bg-blue-500" />
-              </div>
-            </div>
 
-            <div>
-              <p className="font-display text-[16px] font-bold leading-none text-[#17345f]">
-                Team SparkByte
-              </p>
+        {/* LOGO */}
 
-              <p className="mt-1 text-[8px] font-medium text-[#6c8bab]">
-                Cleaner Cities, Brighter Future
-              </p>
-            </div>
-          </a>
+        <div className="flex h-20 items-center justify-between border-b border-slate-200 px-6">
+
+          <div>
+
+            <h1 className="text-xl font-bold">
+              CivicConnect
+            </h1>
+
+            <p className="text-xs text-slate-500">
+              Team SparkByte
+            </p>
+
+          </div>
+
 
           <button
-            onClick={() => setSidebarOpen(false)}
-            className="ml-auto lg:hidden"
+            onClick={() =>
+              setSidebarOpen(false)
+            }
+            className="rounded-lg p-2 hover:bg-slate-100 lg:hidden"
           >
-            <X className="h-5 w-5" />
+            <X size={20} />
           </button>
+
         </div>
 
-        {/* Navigation */}
 
-        <nav className="flex-1 px-3 py-5">
+        {/* NAVIGATION */}
+
+        <nav className="flex-1 space-y-2 px-4 py-6">
 
           <SidebarItem
-            icon={Home}
+            icon={<Home size={19} />}
             label="Home"
+            href="/dashboard"
             active
           />
 
           <SidebarItem
-            icon={Plus}
+            icon={<Plus size={19} />}
             label="Report Issue"
+            href="/report"
           />
 
           <SidebarItem
-            icon={Map}
+            icon={<Map size={19} />}
             label="Explore Map"
+            href="/map"
           />
 
           <SidebarItem
-            icon={FileText}
+            icon={<FileText size={19} />}
             label="My Complaints"
+            href="/dashboard/complaints"
           />
 
           <SidebarItem
-            icon={Bell}
+            icon={<Bell size={19} />}
             label="Notifications"
-            badge="3"
+            href="/dashboard/notifications"
           />
 
           <SidebarItem
-            icon={User}
+            icon={<User size={19} />}
             label="Profile"
+            href="/profile"
           />
+
         </nav>
 
-        {/* Bottom decoration */}
 
-        <div className="relative overflow-hidden border-t border-[#edf2f7] px-5 py-6">
-          <div className="absolute -bottom-8 -left-4 opacity-20">
-            <div className="h-20 w-20 rounded-full bg-civic-green" />
-          </div>
+        {/* SETTINGS */}
 
-          <p className="relative text-xs font-semibold text-civic-green">
-            Small actions
-          </p>
+        <div className="border-t border-slate-200 p-4">
 
-          <p className="relative mt-1 text-sm leading-relaxed text-[#53708e]">
-            create cleaner,
-            <br />
-            safer and better
-            <br />
-            cities for all.
-          </p>
+          <SidebarItem
+            icon={<Settings size={19} />}
+            label="Settings"
+            href="/settings"
+          />
+
         </div>
+
       </aside>
 
-      {/* ================= MAIN ================= */}
 
-      <div className="lg:pl-[220px]">
+      {/* ===================================================
+          MAIN
+      =================================================== */}
 
-        {/* ================= TOP BAR ================= */}
+      <main className="lg:ml-72">
 
-        <header className="sticky top-0 z-30 h-[72px] border-b border-[#dce7f2] bg-white/90 backdrop-blur-xl">
-          <div className="flex h-full items-center gap-4 px-4 sm:px-6 lg:px-5">
+
+        {/* =================================================
+            TOP BAR
+        ================================================= */}
+
+        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+
+
+          <div className="flex items-center gap-4">
 
             <button
-              onClick={() => setSidebarOpen(true)}
-              className="rounded-lg p-2 hover:bg-[#f1f5f9] lg:hidden"
+              onClick={() =>
+                setSidebarOpen(true)
+              }
+              className="rounded-xl p-2 hover:bg-slate-100 lg:hidden"
             >
-              <Menu className="h-5 w-5" />
+              <Menu size={22} />
             </button>
 
-            {/* Search */}
 
-            <div className="relative max-w-[530px] flex-1">
-              <Search className="absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#57718e]" />
+            {/* SEARCH */}
+
+            <div className="hidden w-72 items-center gap-3 rounded-xl bg-slate-100 px-4 py-2.5 md:flex">
+
+              <Search
+                size={18}
+                className="text-slate-400"
+              />
 
               <input
                 type="text"
-                placeholder="Search issues, locations, categories..."
-                className="h-11 w-full rounded-xl border border-[#edf2f7] bg-[#f8fafc] pl-11 pr-4 text-[13px] text-[#17345f] outline-none transition focus:border-blue-300 focus:bg-white"
+                placeholder="Search complaints..."
+                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
               />
+
             </div>
 
-            {/* Right controls */}
-
-            <div className="ml-auto flex items-center gap-3">
-
-              {/* Location */}
-
-              <button className="hidden items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold hover:bg-[#f5f8fb] sm:flex">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50">
-                  <MapPin className="h-4 w-4 text-emerald-500" />
-                </span>
-
-                Patna
-
-                <ChevronDown className="h-3.5 w-3.5 text-[#7087a0]" />
-              </button>
-
-              {/* Notification */}
-
-              <button className="relative rounded-xl p-2.5 hover:bg-[#f5f8fb]">
-                <Bell className="h-5 w-5 text-[#17345f]" />
-
-                <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
-                  3
-                </span>
-              </button>
-
-              {/* Profile */}
-
-              <button className="hidden items-center gap-2 border-l border-[#edf2f7] pl-3 sm:flex">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
-                  RK
-                </div>
-
-                <div className="text-left">
-                  <p className="text-xs font-bold text-[#17345f]">
-                    Rahul Kumar
-                  </p>
-
-                  <p className="text-[9px] text-[#8295aa]">
-                    Citizen
-                  </p>
-                </div>
-
-                <ChevronDown className="h-3.5 w-3.5 text-[#7087a0]" />
-              </button>
-            </div>
           </div>
+
+
+          {/* RIGHT SIDE */}
+
+          <div className="flex items-center gap-4">
+
+
+            {/* LOCATION */}
+
+            <div className="hidden items-center gap-2 text-sm text-slate-600 sm:flex">
+
+              <MapPin size={17} />
+
+              <span>
+                {locationName}
+              </span>
+
+            </div>
+
+
+            {/* NOTIFICATION */}
+
+            <button className="relative rounded-xl p-2.5 hover:bg-slate-100">
+
+              <Bell size={21} />
+
+              <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-red-500" />
+
+            </button>
+
+
+            {/* USER */}
+
+            <div className="flex items-center gap-3">
+
+              <div className="hidden text-right sm:block">
+
+                <p className="text-sm font-semibold">
+                  {data.user.name ||
+                    "Citizen"}
+                </p>
+
+                <p className="text-xs capitalize text-slate-500">
+                  {data.user.role ||
+                    "Citizen"}
+                </p>
+
+              </div>
+
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
+
+                {firstName
+                  .charAt(0)
+                  .toUpperCase()}
+
+              </div>
+
+
+              <ChevronDown
+                size={17}
+                className="hidden text-slate-400 sm:block"
+              />
+
+            </div>
+
+          </div>
+
         </header>
 
-        {/* ================= CONTENT ================= */}
 
-        <div className="p-4 sm:p-5 lg:p-6">
+        {/* =================================================
+            CONTENT
+        ================================================= */}
 
-          {/* ================= WELCOME BANNER ================= */}
+        <div className="p-4 sm:p-6 lg:p-8">
 
-          <section className="relative mb-4 min-h-[130px] overflow-hidden rounded-xl border border-blue-100 bg-gradient-to-r from-[#e7f3ff] via-[#eef8ff] to-[#dff3ed] px-5 py-5 sm:px-6">
 
-            {/* City illustration */}
+          {/* =================================================
+              WELCOME
+          ================================================= */}
 
-            <div className="absolute bottom-0 right-[18%] hidden opacity-80 lg:block">
-              <div className="flex items-end gap-1">
-                <div className="h-14 w-5 bg-blue-200" />
-                <div className="h-20 w-7 bg-blue-300" />
-                <div className="h-12 w-6 bg-emerald-200" />
-                <div className="h-24 w-8 bg-blue-200" />
-                <div className="h-16 w-5 bg-blue-300" />
-                <div className="h-28 w-9 bg-blue-200" />
-                <div className="h-20 w-6 bg-emerald-300" />
-              </div>
-            </div>
+         { /* Dashboard Content */}
+<div className="space-y-6">
 
-            {/* Tree */}
+  {/* Banner */}
+  <div className="relative w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
+    <img
+      src="/dashboard-banner.png"
+      alt="CivicConnect city banner"
+      className="h-[280px] w-full object-cover"
+    />
+  </div>
 
-            <div className="absolute bottom-0 right-[30%] hidden lg:block">
-              <div className="h-16 w-4 bg-amber-700" />
-              <div className="absolute -left-8 -top-10 h-20 w-20 rounded-full bg-emerald-400" />
-              <div className="absolute -left-2 -top-14 h-16 w-16 rounded-full bg-emerald-500" />
-            </div>
+  {/* Welcome Section */}
+  <div className="flex items-start justify-between gap-6">
+    <div>
+      <p className="text-sm font-medium text-blue-600">
+        Citizen Dashboard
+      </p>
 
-            <div className="relative z-10 max-w-[560px]">
-              <h1 className="font-display text-xl font-bold text-[#17345f] sm:text-2xl">
-                Good Morning, Rahul! 👋
-              </h1>
+      <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
+        Good Morning, {data.user.name}! 👋
+      </h1>
 
-              <p className="mt-1 text-sm text-[#4f7196]">
-                Together we can build a cleaner, safer and better city.
-              </p>
+      <p className="mt-2 text-sm text-slate-500">
+        Track your complaints and see the impact you're making in your community.
+      </p>
+    </div>
 
-              <button className="mt-4 inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-blue-700">
-                <Plus className="h-4 w-4" />
-                Report an Issue
-              </button>
-            </div>
+    <button
+      onClick={() => router.push("/report")}
+      className="flex shrink-0 items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+    >
+      <Plus className="h-4 w-4" />
+      Report an Issue
+    </button>
+  </div>
+</div>
 
-            {/* Impact */}
+          {/* =================================================
+              STATS
+          ================================================= */}
 
-            <div className="absolute right-5 top-4 hidden w-[150px] rounded-xl border border-white/80 bg-white/90 p-4 shadow-sm backdrop-blur sm:block">
-              <p className="text-[10px] font-bold text-[#526e8c]">
-                Your Impact
-              </p>
+          <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
-              <p className="mt-1 text-2xl font-bold text-[#17345f]">
-                12
-              </p>
+            <DashboardStat
+              title="My Complaints"
+              value={
+                loading
+                  ? "..."
+                  : String(
+                      data.stats.complaints
+                    )
+              }
+              subtitle="Issues reported by you"
+              icon={
+                <FileText size={22} />
+              }
+            />
 
-              <p className="text-[10px] text-[#758ba2]">
-                issues reported
-              </p>
-            </div>
+
+            <DashboardStat
+              title="Issues Supported"
+              value={
+                loading
+                  ? "..."
+                  : String(
+                      data.stats.supported
+                    )
+              }
+              subtitle="Community issues you supported"
+              icon={
+                <ThumbsUp size={22} />
+              }
+            />
+
+
+            <DashboardStat
+              title="Resolved Issues"
+              value={
+                loading
+                  ? "..."
+                  : String(
+                      data.stats.resolved
+                    )
+              }
+              subtitle="Your complaints resolved"
+              icon={
+                <CheckCircle2 size={22} />
+              }
+            />
+
+
+            <DashboardStat
+              title="Avg. Resolution Time"
+              value={
+                loading
+                  ? "..."
+                  : data.stats
+                      .averageResolutionTime
+              }
+              subtitle="Average time to resolve"
+              icon={
+                <Clock size={22} />
+              }
+            />
+
           </section>
 
-          {/* ================= STAT CARDS ================= */}
 
-          <section className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {/* =================================================
+              MAP + IMPACT
+          ================================================= */}
 
-            <DashboardStat
-              icon={AlertCircle}
-              iconType="red"
-              label="My Complaints"
-              value="4"
-              footer={
-                <>
-                  <span className="text-red-400">● 1 In Progress</span>
-                  <span className="text-emerald-500">● 2 Resolved</span>
-                  <span className="text-[#8aa0b5]">● 1 Reopened</span>
-                </>
-              }
-            />
+          <section className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-3">
 
-            <DashboardStat
-              icon={ThumbsUp}
-              iconType="green"
-              label="Issues Supported"
-              value="8"
-              footer={
-                <span>
-                  You&apos;ve supported 8 issues
-                </span>
-              }
-            />
 
-            <DashboardStat
-              icon={CheckCircle2}
-              iconType="blue"
-              label="Resolved Issues"
-              value="2"
-              footer={
-                <span className="font-semibold text-blue-500">
-                  ● 56% resolution rate
-                </span>
-              }
-            />
+            {/* =================================================
+                REAL LEAFLET MAP
+            ================================================= */}
 
-            <DashboardStat
-              icon={Clock3}
-              iconType="purple"
-              label="Avg. Resolution Time"
-              value="3.2 days"
-              footer={
-                <span className="font-semibold text-emerald-500">
-                  ↓ 42% than last month
-                </span>
-              }
-            />
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
 
-          </section>
 
-          {/* ================= MIDDLE ================= */}
+              {/* MAP HEADER */}
 
-          <section className="grid gap-4 xl:grid-cols-[1.8fr_1fr_0.95fr]">
+              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
 
-            {/* ================= MAP ================= */}
+                <div>
 
-            <div className="rounded-xl border border-[#dce7f2] bg-white p-3 shadow-sm">
+                  <h3 className="font-semibold">
+                    Community Issues
+                  </h3>
 
-              <div className="flex items-center justify-between px-2 pb-3">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-blue-500" />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Live civic issues reported around you
+                  </p>
 
-                  <h2 className="text-sm font-bold">
-                    Nearby Civic Issues
-                  </h2>
                 </div>
 
-                <button className="text-[10px] font-semibold text-blue-600">
-                  View All
-                </button>
+
+                <a
+                  href="/map"
+                  className="text-sm font-semibold text-slate-700 hover:text-slate-900"
+                >
+                  View Full Map
+                </a>
+
               </div>
 
-              <div className="grid gap-3 md:grid-cols-[1fr_150px]">
 
-                {/* Map */}
+              {/* LEAFLET */}
 
-                <div className="relative h-[270px] overflow-hidden rounded-lg bg-[#e8f0e7]">
+              <CommunityMap
+                issues={data.mapIssues}
+                userLocation={userLocation}
+              />
 
-                  {/* Map roads */}
-
-                  <div className="absolute left-[-10%] top-[45%] h-2 w-[120%] rotate-[12deg] bg-white/80" />
-                  <div className="absolute left-[-10%] top-[68%] h-2 w-[120%] rotate-[-8deg] bg-white/80" />
-                  <div className="absolute left-[20%] top-[-20%] h-[150%] w-2 rotate-[18deg] bg-white/80" />
-                  <div className="absolute left-[62%] top-[-20%] h-[150%] w-2 rotate-[-15deg] bg-white/80" />
-
-                  {/* River */}
-
-                  <div className="absolute -right-20 top-[40%] h-20 w-[130%] rotate-[-12deg] rounded-[50%] bg-blue-200/80" />
-
-                  {/* Place name */}
-
-                  <span className="absolute left-[46%] top-[47%] text-xs font-semibold text-[#657c72]">
-                    Patna
-                  </span>
-
-                  <span className="absolute left-[35%] top-[27%] text-[9px] text-[#789080]">
-                    Gandhi Maidan
-                  </span>
-
-                  <span className="absolute left-[30%] top-[75%] text-[9px] text-[#789080]">
-                    Kankarbagh
-                  </span>
-
-                  {/* Pins */}
-
-                  <MapPin
-                    className="absolute left-[28%] top-[25%] h-7 w-7 fill-red-500 text-red-500"
-                  />
-
-                  <MapPin
-                    className="absolute left-[48%] top-[22%] h-7 w-7 fill-red-500 text-red-500"
-                  />
-
-                  <MapPin
-                    className="absolute left-[30%] top-[52%] h-7 w-7 fill-red-500 text-red-500"
-                  />
-
-                  <MapPin
-                    className="absolute left-[62%] top-[54%] h-7 w-7 fill-red-500 text-red-500"
-                  />
-
-                  <MapPin
-                    className="absolute left-[74%] top-[20%] h-7 w-7 fill-orange-400 text-orange-400"
-                  />
-
-                  <MapPin
-                    className="absolute left-[12%] top-[40%] h-7 w-7 fill-orange-400 text-orange-400"
-                  />
-
-                  <MapPin
-                    className="absolute left-[15%] top-[76%] h-7 w-7 fill-emerald-500 text-emerald-500"
-                  />
-
-                  <MapPin
-                    className="absolute left-[72%] top-[77%] h-7 w-7 fill-emerald-500 text-emerald-500"
-                  />
-
-                  {/* User location */}
-
-                  <div className="absolute left-[51%] top-[52%] flex h-6 w-6 items-center justify-center rounded-full bg-blue-500 ring-4 ring-blue-500/20">
-                    <div className="h-2 w-2 rounded-full bg-white" />
-                  </div>
-
-                  {/* Zoom */}
-
-                  <div className="absolute right-2 top-2 overflow-hidden rounded-lg bg-white shadow-md">
-                    <button className="block h-9 w-9 text-lg hover:bg-gray-50">
-                      +
-                    </button>
-
-                    <div className="h-px bg-gray-200" />
-
-                    <button className="block h-9 w-9 text-lg hover:bg-gray-50">
-                      −
-                    </button>
-
-                    <div className="h-px bg-gray-200" />
-
-                    <button className="block h-9 w-9 text-sm hover:bg-gray-50">
-                      ◎
-                    </button>
-                  </div>
-                </div>
-
-                {/* Category legend */}
-
-                <div className="space-y-4 px-2 py-2">
-                  <MapLegend color="red" label="Roads" count="12" />
-                  <MapLegend color="green" label="Garbage & Waste" count="8" />
-                  <MapLegend color="blue" label="Water Supply" count="6" />
-                  <MapLegend color="orange" label="Electricity" count="5" />
-                  <MapLegend color="purple" label="Drainage" count="4" />
-                  <MapLegend color="cyan" label="Streetlights" count="3" />
-                  <MapLegend color="gray" label="Other" count="5" />
-                </div>
-              </div>
             </div>
 
-            {/* ================= QUICK CATEGORIES ================= */}
 
-            <div className="rounded-xl border border-[#dce7f2] bg-white p-4 shadow-sm">
+            {/* =================================================
+                YOUR IMPACT
+            ================================================= */}
 
-              <div className="mb-4 flex items-center gap-2">
-                <Search className="h-4 w-4 text-blue-500" />
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
-                <h2 className="text-sm font-bold">
-                  Quick Report Categories
-                </h2>
+              <div className="mb-6">
+
+                <h3 className="font-semibold">
+                  Your Impact
+                </h3>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  Your contribution to the community
+                </p>
+
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                {categories.map((category) => {
-                  const Icon = category.icon;
 
-                  return (
-                    <button
-                      key={category.name}
-                      className={`flex aspect-square flex-col items-center justify-center rounded-xl border transition hover:-translate-y-0.5 hover:shadow-sm ${categoryStyle(
-                        category.type
-                      )}`}
-                    >
-                      <Icon className="h-5 w-5" />
+              <div className="flex flex-col items-center justify-center py-6">
 
-                      <span className="mt-2 text-[9px] font-semibold">
-                        {category.name}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
 
-            {/* ================= NOTIFICATIONS ================= */}
+                <div className="flex h-28 w-28 items-center justify-center rounded-full border-8 border-slate-200">
 
-            <div className="rounded-xl border border-[#dce7f2] bg-white shadow-sm">
+                  <div className="text-center">
 
-              <div className="flex items-center justify-between border-b border-[#edf2f7] px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <Bell className="h-4 w-4 text-blue-600" />
-
-                  <h2 className="text-sm font-bold">
-                    Recent Notifications
-                  </h2>
-                </div>
-
-                <button className="text-[10px] font-semibold text-blue-600">
-                  View All
-                </button>
-              </div>
-
-              <div className="divide-y divide-[#edf2f7]">
-                {notifications.map((notification, index) => {
-                  const Icon = notification.icon;
-
-                  return (
-                    <div
-                      key={index}
-                      className="flex gap-3 px-4 py-3"
-                    >
-                      <div
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${notificationIcon(
-                          notification.type
-                        )}`}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </div>
-
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-semibold leading-relaxed">
-                          {notification.title}
-                        </p>
-
-                        <p className="text-[10px] leading-relaxed text-[#71869d]">
-                          {notification.text}
-                        </p>
-
-                        <p className="mt-1 text-[8px] text-[#9aabba]">
-                          {notification.time}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-
-          {/* ================= BOTTOM GRID ================= */}
-
-          <section className="mt-4 grid gap-4 xl:grid-cols-[1.8fr_0.95fr]">
-
-            {/* ================= LATEST COMPLAINTS ================= */}
-
-            <div className="overflow-hidden rounded-xl border border-[#dce7f2] bg-white shadow-sm">
-
-              <div className="flex items-center justify-between border-b border-[#edf2f7] px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-blue-600" />
-
-                  <h2 className="text-sm font-bold">
-                    Latest Complaints
-                  </h2>
-                </div>
-
-                <button className="text-[10px] font-semibold text-blue-600">
-                  View All
-                </button>
-              </div>
-
-              {/* Desktop table */}
-
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-[#edf2f7] bg-[#f9fbfd] text-[8px] font-bold uppercase tracking-wide text-[#8194a8]">
-                      <th className="px-3 py-2.5">ID</th>
-                      <th className="px-3 py-2.5">Issue</th>
-                      <th className="px-3 py-2.5">Category</th>
-                      <th className="px-3 py-2.5">Location</th>
-                      <th className="px-3 py-2.5">Priority</th>
-                      <th className="px-3 py-2.5">Status</th>
-                      <th className="px-3 py-2.5">Date</th>
-                      <th />
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {complaints.map((complaint) => (
-                      <ComplaintTableRow
-                        key={complaint.id}
-                        complaint={complaint}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile cards */}
-
-              <div className="divide-y divide-[#edf2f7] md:hidden">
-                {complaints.map((complaint) => (
-                  <div
-                    key={complaint.id}
-                    className="p-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-bold">
-                          {complaint.issue}
-                        </p>
-
-                        <p className="mt-1 text-[10px] text-[#8194a8]">
-                          {complaint.id} · {complaint.category}
-                        </p>
-
-                        <p className="mt-1 flex items-center gap-1 text-[10px] text-[#8194a8]">
-                          <MapPin className="h-3 w-3" />
-                          {complaint.location}
-                        </p>
-                      </div>
-
-                      <StatusBadge status={complaint.status} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* RIGHT COLUMN */}
-
-            <div className="space-y-4">
-
-              {/* Community */}
-
-              <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-[#e9f4ff] to-[#f0f8ff] p-5">
-
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-                    <Users className="h-5 w-5 text-blue-600" />
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-bold">
-                      Join the community
-                    </h3>
-
-                    <p className="mt-1 text-[11px] leading-relaxed text-[#6b829b]">
-                      Support issues, help your city
-                      <br />
-                      and make an impact together!
+                    <p className="text-3xl font-bold">
+                      {loading
+                        ? "..."
+                        : data.stats
+                            .supported}
                     </p>
 
-                    <button className="mt-3 text-[11px] font-bold text-blue-600">
-                      Explore Map →
-                    </button>
-                  </div>
-                </div>
-              </div>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">
+                      Supports
+                    </p>
 
-              {/* Quick stats */}
-
-              <div className="rounded-xl border border-[#dce7f2] bg-white shadow-sm">
-
-                <div className="flex items-center justify-between border-b border-[#edf2f7] px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-blue-600" />
-
-                    <h3 className="text-sm font-bold">
-                      Quick Stats
-                    </h3>
                   </div>
 
-                  <button className="flex items-center gap-1 text-[9px] text-[#7d91a5]">
-                    This Month
-                    <ChevronDown className="h-3 w-3" />
-                  </button>
                 </div>
 
-                <div className="grid grid-cols-3 divide-x divide-[#edf2f7]">
-                  <QuickStat
-                    label="Total Reports"
-                    value="6"
-                    change="↑ 20%"
-                    positive
+
+                <p className="mt-5 text-center text-sm font-medium">
+                  Every report and support helps improve your city.
+                </p>
+
+
+                <div className="mt-6 w-full space-y-3">
+
+                  <ImpactRow
+                    icon={
+                      <FileText size={16} />
+                    }
+                    label="Complaints"
+                    value={
+                      data.stats.complaints
+                    }
                   />
 
-                  <QuickStat
+                  <ImpactRow
+                    icon={
+                      <ThumbsUp size={16} />
+                    }
+                    label="Supported"
+                    value={
+                      data.stats.supported
+                    }
+                  />
+
+                  <ImpactRow
+                    icon={
+                      <CheckCircle2 size={16} />
+                    }
                     label="Resolved"
-                    value="2"
-                    change="↑ 50%"
-                    positive
+                    value={
+                      data.stats.resolved
+                    }
                   />
 
-                  <QuickStat
-                    label="Pending"
-                    value="4"
-                    change="↑ 33%"
-                    positive={false}
-                  />
                 </div>
+
               </div>
+
             </div>
+
           </section>
 
-          {/* Footer */}
 
-          <footer className="py-5 text-center text-[10px] text-[#9aabba]">
-            Team SparkByte · Cleaner Cities, Brighter Future
+          {/* =================================================
+              LATEST COMPLAINTS
+          ================================================= */}
+
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+
+            <div className="flex flex-col justify-between gap-3 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center">
+
+              <div>
+
+                <h3 className="font-semibold">
+                  Latest Complaints
+                </h3>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  Recent issues reported by you
+                </p>
+
+              </div>
+
+
+              <a
+                href="/dashboard/complaints"
+                className="text-sm font-semibold text-slate-700 hover:text-slate-900"
+              >
+                View All
+              </a>
+
+            </div>
+
+
+            {/* DESKTOP */}
+
+            <div className="hidden overflow-x-auto md:block">
+
+              <table className="w-full">
+
+                <thead>
+
+                  <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
+
+                    <th className="px-5 py-4 font-medium">
+                      Complaint
+                    </th>
+
+                    <th className="px-5 py-4 font-medium">
+                      Category
+                    </th>
+
+                    <th className="px-5 py-4 font-medium">
+                      Location
+                    </th>
+
+                    <th className="px-5 py-4 font-medium">
+                      Priority
+                    </th>
+
+                    <th className="px-5 py-4 font-medium">
+                      Status
+                    </th>
+
+                    <th className="px-5 py-4 font-medium">
+                      Date
+                    </th>
+
+                  </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                  {loading ? (
+
+                    <tr>
+
+                      <td
+                        colSpan={6}
+                        className="px-5 py-12 text-center text-sm text-slate-500"
+                      >
+                        Loading complaints...
+                      </td>
+
+                    </tr>
+
+                  ) : data.complaints.length === 0 ? (
+
+                    <tr>
+
+                      <td
+                        colSpan={6}
+                        className="px-5 py-12 text-center"
+                      >
+
+                        <FileText
+                          size={32}
+                          className="mx-auto text-slate-300"
+                        />
+
+                        <p className="mt-3 text-sm font-medium">
+                          No complaints yet
+                        </p>
+
+                        <p className="mt-1 text-xs text-slate-500">
+                          Report your first civic issue.
+                        </p>
+
+                        <a
+                          href="/report"
+                          className="mt-4 inline-block rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+                        >
+                          Report Issue
+                        </a>
+
+                      </td>
+
+                    </tr>
+
+                  ) : (
+
+                    data.complaints.map(
+                      (complaint) => (
+                        <ComplaintTableRow
+                          key={complaint.id}
+                          complaint={
+                            complaint
+                          }
+                        />
+                      )
+                    )
+
+                  )}
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+
+            {/* MOBILE */}
+
+            <div className="space-y-3 p-4 md:hidden">
+
+              {loading ? (
+
+                <div className="py-8 text-center text-sm text-slate-500">
+                  Loading complaints...
+                </div>
+
+              ) : data.complaints.length === 0 ? (
+
+                <div className="py-8 text-center">
+
+                  <FileText
+                    size={30}
+                    className="mx-auto text-slate-300"
+                  />
+
+                  <p className="mt-3 text-sm font-medium">
+                    No complaints yet
+                  </p>
+
+                </div>
+
+              ) : (
+
+                data.complaints.map(
+                  (complaint) => (
+
+                    <div
+                      key={complaint.id}
+                      className="rounded-xl border border-slate-200 p-4"
+                    >
+
+                      <div className="flex items-start justify-between gap-3">
+
+                        <div>
+
+                          <p className="font-semibold">
+                            {complaint.title}
+                          </p>
+
+                          <p className="mt-1 text-xs text-slate-500">
+                            {complaint.category}
+                          </p>
+
+                        </div>
+
+                        <StatusBadge
+                          status={
+                            complaint.status
+                          }
+                        />
+
+                      </div>
+
+
+                      <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
+
+                        <MapPin size={14} />
+
+                        {complaint.location}
+
+                      </div>
+
+
+                      <div className="mt-3 flex items-center justify-between">
+
+                        <PriorityBadge
+                          priority={
+                            complaint.priority
+                          }
+                        />
+
+                        <span className="text-xs text-slate-400">
+                          {formatDate(
+                            complaint.createdAt
+                          )}
+                        </span>
+
+                      </div>
+
+                    </div>
+
+                  )
+                )
+
+              )}
+
+            </div>
+
+          </section>
+
+
+          {/* FOOTER */}
+
+          <footer className="mt-8 flex flex-col items-center justify-between gap-3 border-t border-slate-200 pt-6 text-xs text-slate-400 sm:flex-row">
+
+            <p>
+              © 2026 CivicConnect · Team SparkByte
+            </p>
+
+            <div className="flex gap-5">
+
+              <a
+                href="#"
+                className="hover:text-slate-600"
+              >
+                Help
+              </a>
+
+              <a
+                href="#"
+                className="hover:text-slate-600"
+              >
+                Privacy
+              </a>
+
+              <a
+                href="#"
+                className="hover:text-slate-600"
+              >
+                Terms
+              </a>
+
+            </div>
+
           </footer>
+
         </div>
-      </div>
-    </main>
+
+      </main>
+
+    </div>
   );
 }
 
 
-/* ========================================================= */
-/* SIDEBAR ITEM */
-/* ========================================================= */
+// =========================================================
+// SIDEBAR ITEM
+// =========================================================
 
 function SidebarItem({
-  icon: Icon,
+  icon,
   label,
+  href,
   active = false,
-  badge,
 }: {
-  icon: LucideIcon;
+  icon: React.ReactNode;
   label: string;
+  href: string;
   active?: boolean;
-  badge?: string;
 }) {
+
   return (
+
     <a
-      href="#"
-      className={`relative mb-1 flex items-center gap-3 rounded-lg px-4 py-3 text-[12px] font-semibold transition ${
+      href={href}
+      className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${
         active
-          ? "bg-blue-50 text-blue-600"
-          : "text-[#344e6b] hover:bg-[#f5f8fb]"
+          ? "bg-slate-900 text-white"
+          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
       }`}
     >
-      <Icon className="h-[17px] w-[17px]" />
 
-      <span>{label}</span>
+      {icon}
 
-      {badge && (
-        <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] text-white">
-          {badge}
-        </span>
-      )}
+      <span>
+        {label}
+      </span>
+
     </a>
+
   );
 }
 
 
-/* ========================================================= */
-/* STAT CARD */
-/* ========================================================= */
+// =========================================================
+// STAT CARD
+// =========================================================
 
 function DashboardStat({
-  icon: Icon,
-  iconType,
-  label,
+  title,
   value,
-  footer,
+  subtitle,
+  icon,
 }: {
-  icon: LucideIcon;
-  iconType: string;
-  label: string;
+  title: string;
   value: string;
-  footer: React.ReactNode;
+  subtitle: string;
+  icon: React.ReactNode;
 }) {
+
   return (
-    <div className="rounded-xl border border-[#dce7f2] bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
       <div className="flex items-start justify-between">
 
-        <div
-          className={`flex h-10 w-10 items-center justify-center rounded-full ${statIconBackground(
-            iconType
-          )}`}
-        >
-          <Icon className="h-5 w-5" />
+        <div>
+
+          <p className="text-sm font-medium text-slate-500">
+            {title}
+          </p>
+
+          <p className="mt-2 text-3xl font-bold tracking-tight">
+            {value}
+          </p>
+
         </div>
 
-        <ChevronRight className="h-4 w-4 text-[#a1b1c0]" />
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+
+          {icon}
+
+        </div>
+
       </div>
 
-      <p className="mt-3 text-[10px] font-semibold text-[#70869e]">
-        {label}
+      <p className="mt-3 text-xs text-slate-400">
+        {subtitle}
       </p>
 
-      <p className="mt-0.5 font-display text-2xl font-bold text-[#17345f]">
-        {value}
-      </p>
-
-      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[8px] text-[#7f93a7]">
-        {footer}
-      </div>
     </div>
+
   );
 }
 
 
-/* ========================================================= */
-/* MAP LEGEND */
-/* ========================================================= */
+// =========================================================
+// IMPACT ROW
+// =========================================================
 
-function MapLegend({
-  color,
+function ImpactRow({
+  icon,
   label,
-  count,
+  value,
 }: {
-  color: string;
+  icon: React.ReactNode;
   label: string;
-  count: string;
+  value: number;
 }) {
+
   return (
-    <div className="flex items-center gap-2 text-[10px]">
-      <span className={`h-2.5 w-2.5 rounded-full ${mapColor(color)}`} />
 
-      <span className="flex-1 text-[#536e89]">
-        {label}
+    <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+
+      <div className="flex items-center gap-3">
+
+        <div className="text-slate-500">
+          {icon}
+        </div>
+
+        <span className="text-sm text-slate-600">
+          {label}
+        </span>
+
+      </div>
+
+      <span className="text-sm font-bold">
+        {value}
       </span>
 
-      <span className="font-semibold text-[#71879d]">
-        {count}
-      </span>
     </div>
+
   );
 }
 
 
-/* ========================================================= */
-/* COMPLAINT ROW */
-/* ========================================================= */
+// =========================================================
+// COMPLAINT TABLE ROW
+// =========================================================
 
 function ComplaintTableRow({
   complaint,
 }: {
-  complaint: (typeof complaints)[number];
+  complaint: Complaint;
 }) {
+
   return (
-    <tr className="border-b border-[#edf2f7] text-[9px] transition hover:bg-[#fafcfe]">
 
-      <td className="px-3 py-2.5 font-semibold text-[#4d7196]">
-        {complaint.id}
+    <tr className="border-b border-slate-100 last:border-0">
+
+
+      <td className="px-5 py-4">
+
+        <div className="flex items-center gap-3">
+
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100">
+
+            <MessageSquare size={17} />
+
+          </div>
+
+          <div>
+
+            <p className="max-w-[230px] truncate text-sm font-semibold">
+              {complaint.title}
+            </p>
+
+            <p className="mt-1 text-xs text-slate-400">
+              #{complaint.id.slice(0, 8)}
+            </p>
+
+          </div>
+
+        </div>
+
       </td>
 
-      <td className="px-3 py-2.5 font-semibold text-[#304b68]">
-        {complaint.issue}
-      </td>
 
-      <td className="px-3 py-2.5 text-[#6e849a]">
+      <td className="px-5 py-4 text-sm text-slate-600">
+
         {complaint.category}
+
       </td>
 
-      <td className="px-3 py-2.5 text-[#6e849a]">
-        {complaint.location}
+
+      <td className="px-5 py-4">
+
+        <div className="flex items-center gap-1.5 text-sm text-slate-600">
+
+          <MapPin size={14} />
+
+          <span className="max-w-[180px] truncate">
+            {complaint.location}
+          </span>
+
+        </div>
+
       </td>
 
-      <td className="px-3 py-2.5">
-        <PriorityBadge priority={complaint.priority} />
+
+      <td className="px-5 py-4">
+
+        <PriorityBadge
+          priority={
+            complaint.priority
+          }
+        />
+
       </td>
 
-      <td className="px-3 py-2.5">
-        <StatusBadge status={complaint.status} />
+
+      <td className="px-5 py-4">
+
+        <StatusBadge
+          status={
+            complaint.status
+          }
+        />
+
       </td>
 
-      <td className="whitespace-nowrap px-3 py-2.5 text-[#71879d]">
-        {complaint.date}
+
+      <td className="px-5 py-4 text-sm text-slate-500">
+
+        {formatDate(
+          complaint.createdAt
+        )}
+
       </td>
 
-      <td className="px-2">
-        <ChevronRight className="h-3.5 w-3.5 text-blue-400" />
-      </td>
     </tr>
+
   );
 }
 
 
-/* ========================================================= */
-/* PRIORITY */
-/* ========================================================= */
+// =========================================================
+// PRIORITY BADGE
+// =========================================================
 
 function PriorityBadge({
   priority,
 }: {
   priority: string;
 }) {
-  const styles = {
-    High: "bg-red-50 text-red-500",
-    Medium: "bg-amber-50 text-amber-500",
-    Low: "bg-emerald-50 text-emerald-500",
-  };
+
+  const value =
+    priority?.toLowerCase();
+
+
+  let className =
+    "bg-slate-100 text-slate-600";
+
+
+  if (
+    value === "critical" ||
+    value === "high"
+  ) {
+
+    className =
+      "bg-red-50 text-red-600";
+
+  } else if (
+    value === "normal"
+  ) {
+
+    className =
+      "bg-yellow-50 text-yellow-700";
+
+  } else if (
+    value === "low"
+  ) {
+
+    className =
+      "bg-green-50 text-green-600";
+
+  }
+
 
   return (
+
     <span
-      className={`rounded-full px-2.5 py-1 text-[8px] font-bold ${
-        styles[priority as keyof typeof styles]
-      }`}
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${className}`}
     >
-      {priority}
+      {formatStatus(priority)}
     </span>
+
   );
 }
 
 
-/* ========================================================= */
-/* STATUS */
-/* ========================================================= */
+// =========================================================
+// STATUS BADGE
+// =========================================================
 
 function StatusBadge({
   status,
 }: {
   status: string;
 }) {
-  const styles = {
-    "In Progress": "bg-amber-50 text-amber-500",
-    Assigned: "bg-blue-50 text-blue-500",
-    Open: "bg-red-50 text-red-500",
-    Resolved: "bg-emerald-50 text-emerald-500",
-  };
+
+  const value =
+    status?.toLowerCase();
+
+
+  let className =
+    "bg-slate-100 text-slate-600";
+
+
+  let icon =
+    <AlertCircle size={12} />;
+
+
+  if (
+    value === "resolved"
+  ) {
+
+    className =
+      "bg-green-50 text-green-600";
+
+    icon =
+      <CheckCircle2 size={12} />;
+
+  } else if (
+    value === "in_progress"
+  ) {
+
+    className =
+      "bg-blue-50 text-blue-600";
+
+    icon =
+      <Clock size={12} />;
+
+  } else if (
+    value === "reported" ||
+    value === "in_review"
+  ) {
+
+    className =
+      "bg-yellow-50 text-yellow-700";
+
+  }
+
 
   return (
+
     <span
-      className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[8px] font-bold ${
-        styles[status as keyof typeof styles] ||
-        "bg-gray-50 text-gray-500"
-      }`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${className}`}
     >
-      {status}
+
+      {icon}
+
+      {formatStatus(status)}
+
     </span>
+
   );
 }
 
 
-/* ========================================================= */
-/* QUICK STATS */
-/* ========================================================= */
+// =========================================================
+// FORMAT STATUS
+// =========================================================
 
-function QuickStat({
-  label,
-  value,
-  change,
-  positive,
-}: {
-  label: string;
-  value: string;
-  change: string;
-  positive: boolean;
-}) {
-  return (
-    <div className="px-3 py-4">
-      <p className="text-[9px] text-[#7c91a6]">
-        {label}
-      </p>
+function formatStatus(
+  status: string
+) {
 
-      <p className="mt-1 text-xl font-bold text-[#17345f]">
-        {value}
-      </p>
+  if (!status) {
+    return "Unknown";
+  }
 
-      <p
-        className={`mt-1 text-[9px] font-bold ${
-          positive ? "text-emerald-500" : "text-red-500"
-        }`}
-      >
-        {change}
-      </p>
-    </div>
-  );
+  return status
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) =>
+      letter.toUpperCase()
+    );
+
 }
 
 
-/* ========================================================= */
-/* STYLES */
-/* ========================================================= */
+// =========================================================
+// FORMAT DATE
+// =========================================================
 
-function statIconBackground(type: string) {
-  const styles: Record<string, string> = {
-    red: "bg-red-50 text-red-500",
-    green: "bg-emerald-50 text-emerald-500",
-    blue: "bg-blue-50 text-blue-500",
-    purple: "bg-purple-50 text-purple-500",
-  };
+function formatDate(
+  date: string
+) {
 
-  return styles[type] || "bg-gray-50 text-gray-500";
-}
+  if (!date) {
+    return "-";
+  }
 
+  try {
 
-function notificationIcon(type: string) {
-  const styles: Record<string, string> = {
-    green: "bg-emerald-50 text-emerald-500",
-    blue: "bg-blue-50 text-blue-500",
-    orange: "bg-amber-50 text-amber-500",
-    purple: "bg-purple-50 text-purple-500",
-  };
+    return new Date(
+      date
+    ).toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    );
 
-  return styles[type] || "bg-gray-50 text-gray-500";
-}
+  } catch {
 
+    return "-";
 
-function mapColor(color: string) {
-  const colors: Record<string, string> = {
-    red: "bg-red-500",
-    green: "bg-emerald-500",
-    blue: "bg-blue-500",
-    orange: "bg-orange-500",
-    purple: "bg-purple-500",
-    cyan: "bg-cyan-500",
-    gray: "bg-slate-400",
-  };
+  }
 
-  return colors[color] || "bg-gray-400";
-}
-
-
-function categoryStyle(type: string) {
-  const styles: Record<string, string> = {
-    red: "border-red-100 bg-red-50/60 text-red-500",
-    green: "border-emerald-100 bg-emerald-50/60 text-emerald-500",
-    blue: "border-blue-100 bg-blue-50/60 text-blue-500",
-    orange: "border-orange-100 bg-orange-50/60 text-orange-500",
-    purple: "border-purple-100 bg-purple-50/60 text-purple-500",
-    cyan: "border-cyan-100 bg-cyan-50/60 text-cyan-500",
-    pink: "border-pink-100 bg-pink-50/60 text-pink-500",
-    gray: "border-slate-100 bg-slate-50 text-slate-500",
-  };
-
-  return styles[type] || styles.gray;
-}
-
-
-/* ========================================================= */
-/* OTHER ICON */
-/* ========================================================= */
-
-function MoreIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="5" cy="12" r="1" />
-      <circle cx="12" cy="12" r="1" />
-      <circle cx="19" cy="12" r="1" />
-    </svg>
-  );
 }
