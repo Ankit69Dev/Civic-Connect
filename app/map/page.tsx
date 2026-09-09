@@ -193,12 +193,7 @@ export default function ExploreMapPage() {
         {/* Header */}
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
           <div className="flex h-20 items-center gap-4 px-4 sm:px-6 lg:px-8">
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="rounded-xl p-2.5 text-slate-600 transition hover:bg-slate-100"
-            >
-              <ArrowLeft size={20} />
-            </button>
+            
 
             <div>
               <h1 className="text-xl font-bold text-slate-950">
@@ -310,11 +305,11 @@ export default function ExploreMapPage() {
           </div>
 
           {/* MAP + ISSUE LIST */}
-          <div className="grid min-h-[calc(100vh-220px)] gap-5 lg:grid-cols-[1fr_380px]">
-            {/* MAP */}
-            <div className="relative min-h-[550px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+<div className="grid gap-5 lg:grid-cols-[1fr_380px]">
+  {/* MAP */}
+  <div className="relative h-[360px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               {loading ? (
-                <div className="flex h-full min-h-[550px] items-center justify-center">
+                <div className="flex h-full items-center justify-center">
                   <div className="text-center">
                     <MapPin
                       size={38}

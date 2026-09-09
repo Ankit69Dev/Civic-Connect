@@ -2,39 +2,64 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { sql } from "@/lib/db";
 
-export async function PATCH(
-  request: Request
-) {
+const VALID_STATUSES = [
+  "reported",
+  "in_review",
+  "assigned",
+  "in_progress",
+  "resolved",
+  "rejected",
+];
+
+function getNotificationMessage(status: string, title: string) {
+  switch (status) {
+    case "reported":
+      return `Your complaint "${title}" has been marked as reported.`;
+
+    case "in_review":
+      return `Your complaint "${title}" is now under review.`;
+
+    case "assigned":
+      return `Your complaint "${title}" has been assigned to an officer.`;
+
+    case "in_progress":
+      return `Work has started on your complaint "${title}".`;
+
+    case "resolved":
+      return `Your complaint "${title}" has been resolved.`;
+
+    case "rejected":
+      return `Your complaint "${title}" has been rejected.`;
+
+    default:
+      return `The status of your complaint "${title}" has been updated.`;
+  }
+}
+
+export async function PATCH(request: Request) {
   try {
+    // --------------------------------
+    // 1. Check logged-in admin
+    // --------------------------------
     const session = await auth();
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Unauthorized." },
         { status: 401 }
       );
     }
 
-    const adminId = session.user.id;
-
-    // Check admin
-    const admins = await sql`
-      SELECT id, role
-      FROM users
-      WHERE id = ${adminId}
-      LIMIT 1
-    `;
-
-    if (
-      admins.length === 0 ||
-      admins[0].role !== "admin"
-    ) {
+    if (session.user.role !== "admin") {
       return NextResponse.json(
-        { error: "Admin access required" },
+        { error: "Admin access required." },
         { status: 403 }
       );
     }
 
+    // --------------------------------
+    // 2. Read request
+    // --------------------------------
     const body = await request.json();
 
     const issueId = body.issueId;
@@ -42,89 +67,135 @@ export async function PATCH(
 
     if (!issueId || !status) {
       return NextResponse.json(
-        { error: "Issue ID and status are required" },
+        { error: "issueId and status are required." },
         { status: 400 }
       );
     }
 
-    const allowedStatuses = [
-      "reported",
-      "in_review",
-      "assigned",
-      "in_progress",
-      "resolved",
-      "rejected",
-    ];
-
-    if (!allowedStatuses.includes(status)) {
+    if (!VALID_STATUSES.includes(status)) {
       return NextResponse.json(
-        { error: "Invalid status" },
+        { error: "Invalid issue status." },
         { status: 400 }
       );
     }
 
-    // -----------------------------------------
-    // UPDATE ISSUE
-    // -----------------------------------------
+    // --------------------------------
+    // 3. Find issue + citizen
+    // --------------------------------
+    const issues = await sql`
+      SELECT
+        id,
+        title,
+        reporter_id
+      FROM issues
+      WHERE id = ${issueId}
+      LIMIT 1
+    `;
 
-    if (status === "resolved") {
-      await sql`
-        UPDATE issues
-        SET
-          status = 'resolved',
-          resolved_at = NOW(),
-          updated_at = NOW()
-        WHERE id = ${issueId}
-      `;
-    } else {
-      await sql`
-        UPDATE issues
-        SET
-          status = ${status},
-          updated_at = NOW()
-        WHERE id = ${issueId}
-      `;
+    if (issues.length === 0) {
+      return NextResponse.json(
+        { error: "Issue not found." },
+        { status: 404 }
+      );
     }
 
-    // -----------------------------------------
-    // SAVE STATUS HISTORY
-    // -----------------------------------------
+    const issue = issues[0];
 
+    // --------------------------------
+    // 4. Update issue status
+    // --------------------------------
+    const updatedIssues = await sql`
+      UPDATE issues
+      SET
+        status = ${status},
+        updated_at = NOW(),
+        resolved_at = CASE
+          WHEN ${status} = 'resolved' THEN NOW()
+          ELSE NULL
+        END
+      WHERE id = ${issueId}
+      RETURNING
+        id,
+        title,
+        status,
+        priority,
+        updated_at AS "updatedAt",
+        resolved_at AS "resolvedAt"
+    `;
+
+    const updatedIssue = updatedIssues[0];
+
+    // --------------------------------
+    // 5. Add status history
+    // --------------------------------
     await sql`
       INSERT INTO issue_status_history (
         id,
         issue_id,
         status,
+        note,
         changed_by,
         changed_at
       )
       VALUES (
-        gen_random_uuid(),
+        ${crypto.randomUUID()},
         ${issueId},
         ${status},
-        ${adminId},
+        ${`Status changed to ${status}`},
+        ${session.user.id},
         NOW()
       )
     `;
 
-    return NextResponse.json({
-      success: true,
-      message: "Issue status updated successfully",
-    });
-
-  } catch (error) {
-    console.error(
-      "Issue status update error:",
-      error
+    // --------------------------------
+    // 6. CREATE CITIZEN NOTIFICATION
+    // --------------------------------
+    const message = getNotificationMessage(
+      status,
+      issue.title
     );
 
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to update issue status",
+    await sql`
+      INSERT INTO notifications (
+        id,
+        user_id,
+        issue_id,
+        message,
+        is_read,
+        created_at
+      )
+      VALUES (
+        ${crypto.randomUUID()},
+        ${issue.reporter_id},
+        ${issueId},
+        ${message},
+        false,
+        NOW()
+      )
+    `;
+
+    console.log("NOTIFICATION CREATED:", {
+      userId: issue.reporter_id,
+      issueId,
+      status,
+      message,
+    });
+
+    // --------------------------------
+    // 7. Return success
+    // --------------------------------
+    return NextResponse.json({
+      success: true,
+      issue: updatedIssue,
+      notification: {
+        message,
       },
+    });
+  } catch (error) {
+    console.error("Admin status update error:", error);
+
+    return NextResponse.json(
+      { error: "Failed to update issue status." },
       { status: 500 }
     );
   }

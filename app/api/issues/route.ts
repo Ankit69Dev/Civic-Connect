@@ -110,6 +110,21 @@ export async function POST(request: Request) {
         created_at
     `;
 
+    await sql`
+  INSERT INTO notifications (
+    id,
+    user_id,
+    issue_id,
+    message
+  )
+  VALUES (
+    ${crypto.randomUUID()},
+    ${session.user.id},
+    ${issueId},
+    ${`Your complaint "${title.trim()}" has been submitted successfully.`}
+  )
+`;
+
     return NextResponse.json(
       {
         success: true,

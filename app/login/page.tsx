@@ -111,6 +111,7 @@ export default function LoginPage() {
           email,
           password,
           redirect: false,
+          loginType: "citizen",
         });
 
         setLoading(false);
@@ -146,6 +147,7 @@ export default function LoginPage() {
         email,
         password,
         redirect: false,
+        loginType: "citizen",
       });
 
       setLoading(false);

@@ -24,23 +24,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           label: "Email",
           type: "email",
         },
+
         password: {
           label: "Password",
           type: "password",
+        },
+
+        loginType: {
+          label: "Login Type",
+          type: "text",
         },
       },
 
       authorize: async (credentials) => {
         const email = credentials?.email as string | undefined;
         const password = credentials?.password as string | undefined;
+        const loginType = credentials?.loginType as string | undefined;
 
-        if (!email || !password) {
+        if (!email || !password || !loginType) {
           return null;
         }
 
         const normalizedEmail = email.toLowerCase().trim();
 
-        // Find the user in Neon
+        // Find user in Neon
         const users = await sql`
           SELECT
             id,
@@ -65,7 +72,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        // Compare entered password with bcrypt hash
+        // Check password
         const passwordValid = await bcrypt.compare(
           password,
           user.password_hash
@@ -74,6 +81,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!passwordValid) {
           return null;
         }
+
+        // -----------------------------------
+        // ROLE-BASED LOGIN
+        // -----------------------------------
+
+        // Normal /login only allows citizens
+        if (loginType === "citizen" && user.role !== "citizen") {
+          return null;
+        }
+
+        // /admin/login only allows admins
+        if (loginType === "admin" && user.role !== "admin") {
+          return null;
+        }
+
+        // Invalid login type
+        if (loginType !== "citizen" && loginType !== "admin") {
+          return null;
+        }
+
+        console.log("AUTH LOGIN:", {
+          email: user.email,
+          role: user.role,
+          loginType,
+        });
 
         // Login successful
         return {

@@ -13,13 +13,14 @@ import {
 } from "lucide-react";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function CitizenSidebar() {
   const router = useRouter();
   const pathname = usePathname();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const navigation = [
     {
@@ -39,7 +40,7 @@ export default function CitizenSidebar() {
     },
     {
       icon: <FileText size={19} />,
-      label: "My Complaints",
+      label: "Complaints",
       href: "/dashboard/complaints",
     },
     {
@@ -53,6 +54,43 @@ export default function CitizenSidebar() {
       href: "/profile",
     },
   ];
+
+  // =================================================
+  // LOAD UNREAD NOTIFICATION COUNT
+  // =================================================
+
+  useEffect(() => {
+    const loadUnreadCount = async () => {
+      try {
+        const response = await fetch(
+          "/api/notifications/unread-count",
+          {
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+
+        setUnreadCount(data.unreadCount ?? 0);
+      } catch (error) {
+        console.error(
+          "Failed to load unread notification count:",
+          error
+        );
+      }
+    };
+
+    loadUnreadCount();
+
+    // Check for new notifications every 5 seconds
+    const interval = setInterval(loadUnreadCount, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   function handleNavigation(href: string) {
     setSidebarOpen(false);
@@ -147,6 +185,17 @@ export default function CitizenSidebar() {
                 {item.icon}
 
                 <span>{item.label}</span>
+
+                {/* =================================================
+                    UNREAD NOTIFICATION BADGE
+                ================================================= */}
+
+                {item.label === "Notifications" &&
+                  unreadCount > 0 && (
+                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
               </button>
             );
           })}
