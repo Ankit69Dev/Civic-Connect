@@ -1,20 +1,128 @@
-// ============================================================
-// CivicConnect — Prisma Schema
-// ============================================================
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL") // Neon: unpooled connection, used for migrations
+  provider = "postgresql"
 }
 
-// ------------------------------------------------------------
-// ENUMS
-// ------------------------------------------------------------
+model User {
+  id             String               @id @default(uuid())
+  name           String?
+  email          String               @unique
+  passwordHash   String?              @map("password_hash")
+  phone          String?              @unique
+  image          String?
+  provider       Provider             @default(credentials)
+  role           Role                 @default(citizen)
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  firebaseUid    String?              @unique @map("firebase_uid")
+  statusChanges  IssueStatusHistory[]
+  upvotes        IssueUpvote[]
+  assignedIssues Issue[]              @relation("AssignedIssues")
+  reportedIssues Issue[]              @relation("ReportedIssues")
+  notifications  Notification[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  icon        String?
+  color       String?
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  issues      Issue[]
+
+  @@map("departments")
+}
+
+model Issue {
+  id                String               @id @default(uuid())
+  reporterId        String               @map("reporter_id")
+  departmentId      String               @map("department_id")
+  assignedOfficerId String?              @map("assigned_officer_id")
+  title             String
+  description       String?
+  imageUrl          String?              @map("image_url")
+  status            IssueStatus          @default(reported)
+  priority          Priority             @default(normal)
+  latitude          Float?
+  longitude         Float?
+  address           String?
+  upvoteCount       Int                  @default(0) @map("upvote_count")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+  resolvedAt        DateTime?            @map("resolved_at")
+  statusHistory     IssueStatusHistory[]
+  upvotes           IssueUpvote[]
+  assignedOfficer   User?                @relation("AssignedIssues", fields: [assignedOfficerId], references: [id])
+  department        Department           @relation(fields: [departmentId], references: [id])
+  reporter          User                 @relation("ReportedIssues", fields: [reporterId], references: [id], onDelete: Cascade)
+  notifications     Notification[]
+
+  @@index([reporterId])
+  @@index([departmentId])
+  @@index([status])
+  @@index([latitude, longitude])
+  @@index([createdAt(sort: Desc)])
+  @@map("issues")
+}
+
+model IssueStatusHistory {
+  id        String   @id @default(uuid())
+  issueId   String   @map("issue_id")
+  status    String
+  note      String?
+  changedBy String?  @map("changed_by")
+  changedAt DateTime @default(now()) @map("changed_at")
+  changer   User?    @relation(fields: [changedBy], references: [id])
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId, changedAt(sort: Desc)])
+  @@map("issue_status_history")
+}
+
+model IssueUpvote {
+  id        String   @id @default(uuid())
+  issueId   String   @map("issue_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, userId])
+  @@index([issueId])
+  @@map("issue_upvotes")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  issueId   String?  @map("issue_id")
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+  issue     Issue?   @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model spatial_ref_sys {
+  srid      Int     @id
+  auth_name String? @db.VarChar(256)
+  auth_srid Int?
+  srtext    String? @db.VarChar(2048)
+  proj4text String? @db.VarChar(2048)
+}
 
 enum Provider {
   credentials
@@ -43,154 +151,15 @@ enum Priority {
   critical
 }
 
-// ------------------------------------------------------------
-// USERS
-// Citizens, department officers, and admins all live here.
-// ------------------------------------------------------------
-
-model User {
-  id           String    @id @default(uuid())
-  name         String?
-  email        String    @unique
-  passwordHash String?   @map("password_hash") // null for Google-only accounts
-  phone        String?   @unique
-  image        String?
-  provider     Provider  @default(credentials)
-  role         Role      @default(citizen)
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-
-  // relations
-  reportedIssues   Issue[]              @relation("ReportedIssues")
-  assignedIssues   Issue[]              @relation("AssignedIssues")
-  statusChanges    IssueStatusHistory[]
-  upvotes          IssueUpvote[]
-  notifications    Notification[]
+model PasswordResetOtp {
+  id         String   @id @default(uuid())
+  email      String
+  otpHash    String   @map("otp_hash")
+  expiresAt  DateTime @map("expires_at")
+  attempts   Int      @default(0)
+  verified   Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
 
   @@index([email])
-  @@index([role])
-  @@map("users")
-}
-
-// ------------------------------------------------------------
-// DEPARTMENTS
-// Matches the "Quick Categories" on the landing page.
-// ------------------------------------------------------------
-
-model Department {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  slug        String   @unique
-  icon        String?
-  color       String?
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  issues Issue[]
-
-  @@map("departments")
-}
-
-// ------------------------------------------------------------
-// ISSUES
-// The core "report" a citizen files.
-// ------------------------------------------------------------
-
-model Issue {
-  id                 String      @id @default(uuid())
-  reporterId         String      @map("reporter_id")
-  departmentId       String      @map("department_id")
-  assignedOfficerId  String?     @map("assigned_officer_id")
-
-  title       String
-  description String?
-  imageUrl    String?     @map("image_url")
-
-  status      IssueStatus @default(reported)
-  priority    Priority    @default(normal)
-
-  latitude    Float?
-  longitude   Float?
-  address     String?
-
-  upvoteCount Int         @default(0) @map("upvote_count")
-
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
-  resolvedAt  DateTime?   @map("resolved_at")
-
-  // relations
-  reporter        User                 @relation("ReportedIssues", fields: [reporterId], references: [id], onDelete: Cascade)
-  assignedOfficer User?                @relation("AssignedIssues", fields: [assignedOfficerId], references: [id], onDelete: SetNull)
-  department      Department           @relation(fields: [departmentId], references: [id])
-  statusHistory   IssueStatusHistory[]
-  upvotes         IssueUpvote[]
-  notifications   Notification[]
-
-  @@index([reporterId])
-  @@index([departmentId])
-  @@index([status])
-  @@index([latitude, longitude])
-  @@index([createdAt(sort: Desc)])
-  @@map("issues")
-}
-
-// ------------------------------------------------------------
-// ISSUE STATUS HISTORY
-// Powers the "Track Complaints" timeline for a citizen.
-// ------------------------------------------------------------
-
-model IssueStatusHistory {
-  id        String   @id @default(uuid())
-  issueId   String   @map("issue_id")
-  status    String
-  note      String?
-  changedBy String?  @map("changed_by")
-  changedAt DateTime @default(now()) @map("changed_at")
-
-  issue   Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  changer User? @relation(fields: [changedBy], references: [id], onDelete: SetNull)
-
-  @@index([issueId, changedAt(sort: Desc)])
-  @@map("issue_status_history")
-}
-
-// ------------------------------------------------------------
-// ISSUE UPVOTES
-// "Crowdsourced" signal — citizens can second an existing report
-// instead of filing a duplicate.
-// ------------------------------------------------------------
-
-model IssueUpvote {
-  id        String   @id @default(uuid())
-  issueId   String   @map("issue_id")
-  userId    String   @map("user_id")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([issueId, userId]) // one upvote per user per issue
-  @@index([issueId])
-  @@map("issue_upvotes")
-}
-
-// ------------------------------------------------------------
-// NOTIFICATIONS
-// Powers the bell icon in the app header / hero mockup.
-// ------------------------------------------------------------
-
-model Notification {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  issueId   String?  @map("issue_id")
-  message   String
-  isRead    Boolean  @default(false) @map("is_read")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  issue Issue? @relation(fields: [issueId], references: [id], onDelete: Cascade)
-
-  @@index([userId, isRead, createdAt(sort: Desc)])
-  @@map("notifications")
+  @@map("password_reset_otps")
 }

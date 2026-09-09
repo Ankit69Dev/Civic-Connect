@@ -30,8 +30,12 @@ export async function POST(req: Request) {
     const normalizedEmail = email.toLowerCase().trim();
 
     const existing = await sql`
-      SELECT id FROM users WHERE email = ${normalizedEmail} LIMIT 1
+      SELECT id
+      FROM users
+      WHERE email = ${normalizedEmail}
+      LIMIT 1
     `;
+
     if (existing.length > 0) {
       return NextResponse.json(
         { error: "An account with this email already exists." },
@@ -41,15 +45,41 @@ export async function POST(req: Request) {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const inserted = await sql`
-      INSERT INTO users (name, email, password_hash, provider)
-      VALUES (${name}, ${normalizedEmail}, ${passwordHash}, 'credentials')
-      RETURNING id, name, email
-    `;
+    const userId = crypto.randomUUID();
+const now = new Date();
 
-    return NextResponse.json({ user: inserted[0] }, { status: 201 });
+const inserted = await sql`
+  INSERT INTO users (
+    id,
+    name,
+    email,
+    password_hash,
+    provider,
+    created_at,
+    updated_at
+  )
+  VALUES (
+    ${userId},
+    ${name.trim()},
+    ${normalizedEmail},
+    ${passwordHash},
+    'credentials',
+    ${now},
+    ${now}
+  )
+  RETURNING id, name, email, role, provider
+`;
+
+    return NextResponse.json(
+      {
+        message: "Account created successfully.",
+        user: inserted[0],
+      },
+      { status: 201 }
+    );
   } catch (err) {
     console.error("Register error:", err);
+
     return NextResponse.json(
       { error: "Something went wrong. Please try again." },
       { status: 500 }
