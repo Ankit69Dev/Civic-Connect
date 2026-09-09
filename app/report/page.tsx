@@ -37,6 +37,18 @@ export default function ReportPage() {
   const [priority, setPriority] = useState("Medium");
   const [submitted, setSubmitted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [location, setLocation] = useState("");
+
+  function useCurrentLocation() {
+    if (!navigator.geolocation) {
+      setLocation("Location detection is unavailable");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => setLocation(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`),
+      () => setLocation("Location permission was not granted"),
+    );
+  }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -150,7 +162,7 @@ export default function ReportPage() {
 
             <section className="rounded-2xl border border-[#dce7f2] bg-white p-5 shadow-sm sm:p-7">
               <div className="mb-5 flex items-start gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"><MapPin className="h-4 w-4" /></div><div><h2 className="text-base font-bold">Where is it?</h2><p className="mt-1 text-xs text-[#8195a9]">A precise location helps the field team respond faster.</p></div></div>
-              <div className="flex gap-2"><input required placeholder="Search an address or landmark" className="min-w-0 flex-1 rounded-lg border border-[#dce7f2] px-3.5 py-3 text-sm outline-none placeholder:text-[#a2b1bf] focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10" /><button type="button" aria-label="Use current location" className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-600 transition hover:bg-blue-100"><Navigation className="h-4 w-4" /></button></div>
+              <div className="flex gap-2"><input required value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Search an address or landmark" className="min-w-0 flex-1 rounded-lg border border-[#dce7f2] px-3.5 py-3 text-sm outline-none placeholder:text-[#a2b1bf] focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10" /><button type="button" onClick={useCurrentLocation} aria-label="Use current location" className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-600 transition hover:bg-blue-100"><Navigation className="h-4 w-4" /></button></div>
               <div className="relative mt-4 h-36 overflow-hidden rounded-xl border border-[#dce7f2] bg-[#e9f1e8]"><div className="absolute left-[-10%] top-[42%] h-2 w-[120%] rotate-[-12deg] bg-white/90" /><div className="absolute left-[45%] top-[-30%] h-[160%] w-2 rotate-[20deg] bg-white/90" /><div className="absolute right-[10%] top-[35%] h-24 w-36 rotate-12 rounded-[50%] bg-blue-200/70" /><MapPin className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-full fill-blue-600 text-blue-600 drop-shadow" /><span className="absolute bottom-3 left-3 rounded bg-white/80 px-2 py-1 text-[10px] font-semibold text-[#66809a]">Patna, Bihar</span></div>
             </section>
           </div>
@@ -199,7 +211,7 @@ function ReportSidebar({
           <ReportNavItem icon={Map} label="Explore Map" href="/explore-map" />
           <ReportNavItem icon={FileText} label="My Complaints" href="/my-complaints" />
           <ReportNavItem icon={Bell} label="Notifications" href="/notifications" badge="3" />
-          <ReportNavItem icon={User} label="Profile" />
+          <ReportNavItem icon={User} label="Profile" href="/profile" />
         </nav>
         <div className="relative overflow-hidden border-t border-[#edf2f7] px-5 py-6"><div className="absolute -bottom-8 -left-4 opacity-20"><div className="h-20 w-20 rounded-full bg-civic-green" /></div><p className="relative text-xs font-semibold text-civic-green">Small actions</p><p className="relative mt-1 text-sm leading-relaxed text-[#53708e]">create cleaner,<br />safer and better<br />cities for all.</p></div>
       </aside>

@@ -12,8 +12,8 @@
   --color-civic-cyan: #0891B2;
   --color-civic-rose: #E11D48;
 
-  --font-display: var(--font-heading-family);
-  --font-body: var(--font-body-family);
+  --font-display: var(--font-poppins);
+  --font-body: var(--font-poppins);
 
   --shadow-panel: 0 24px 60px -20px rgba(11, 37, 64, 0.35);
 }
@@ -25,7 +25,7 @@ html {
 body {
   background-color: var(--color-mist);
   color: var(--color-ink);
-  font-family: var(--font-body);
+  font-family: var(--font-poppins);
 }
 
 ::selection {

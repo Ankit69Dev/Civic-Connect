@@ -30,6 +30,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [otp, setOtp] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [demoLoading, setDemoLoading] = useState(false);
@@ -359,7 +360,7 @@ export default function LoginPage() {
 
                 {mode === "login" && (
                   <div className="flex justify-end">
-                    <button className="text-xs font-medium text-civic-green hover:underline">
+                    <button onClick={() => setError("Password reset is not available for the demo account.")} className="text-xs font-medium text-civic-green hover:underline">
                       Forgot password?
                     </button>
                   </div>
@@ -416,6 +417,8 @@ export default function LoginPage() {
                       <input
                         type="text"
                         maxLength={6}
+                        value={otp}
+                        onChange={(event) => setOtp(event.target.value)}
                         placeholder="123456"
                         className="h-12 w-full rounded-xl border border-ink/10 bg-white px-4 text-center text-lg font-semibold tracking-[0.5em] text-ink outline-none focus:border-civic-green focus:ring-4 focus:ring-civic-green/10"
                       />
@@ -426,6 +429,7 @@ export default function LoginPage() {
                     </div>
                     <button
                       type="button"
+                      onClick={() => setError(otp === "123456" ? "OTP verified. Please use email login to continue." : "Enter the demo OTP 123456.")}
                       className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-navy text-sm font-semibold text-white shadow-panel transition hover:-translate-y-0.5"
                     >
                       Verify OTP

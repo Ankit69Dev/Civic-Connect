@@ -16,7 +16,6 @@ import {
   Menu,
   Plus,
   Search,
-  Settings,
   ShieldCheck,
   ThumbsUp,
   Trash2,
@@ -25,9 +24,9 @@ import {
   Waves,
   X,
   Zap,
-  LogOut,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
@@ -122,7 +121,9 @@ const categories = [
 ];
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [statsPeriod, setStatsPeriod] = useState("This Month");
 
   return (
     <main className="min-h-screen bg-[#f6f9fc] text-[#17345f]">
@@ -146,7 +147,7 @@ export default function DashboardPage() {
         {/* Logo */}
 
         <div className="flex h-[72px] items-center border-b border-[#edf2f7] px-5">
-          <a href="/" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center">
               <div className="relative">
                 <div className="h-7 w-4 rotate-45 rounded-full bg-civic-green" />
@@ -163,7 +164,7 @@ export default function DashboardPage() {
                 Cleaner Cities, Brighter Future
               </p>
             </div>
-          </a>
+          </Link>
 
           <button
             onClick={() => setSidebarOpen(false)}
@@ -211,6 +212,7 @@ export default function DashboardPage() {
           <SidebarItem
             icon={User}
             label="Profile"
+            href="/profile"
           />
         </nav>
 
@@ -269,7 +271,7 @@ export default function DashboardPage() {
 
               {/* Location */}
 
-              <button className="hidden items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold hover:bg-[#f5f8fb] sm:flex">
+              <Link href="/explore-map" className="hidden items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold hover:bg-[#f5f8fb] sm:flex">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50">
                   <MapPin className="h-4 w-4 text-emerald-500" />
                 </span>
@@ -277,21 +279,21 @@ export default function DashboardPage() {
                 Patna
 
                 <ChevronDown className="h-3.5 w-3.5 text-[#7087a0]" />
-              </button>
+              </Link>
 
               {/* Notification */}
 
-              <button className="relative rounded-xl p-2.5 hover:bg-[#f5f8fb]">
+              <Link href="/notifications" className="relative rounded-xl p-2.5 hover:bg-[#f5f8fb]">
                 <Bell className="h-5 w-5 text-[#17345f]" />
 
                 <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
                   3
                 </span>
-              </button>
+              </Link>
 
               {/* Profile */}
 
-              <button className="hidden items-center gap-2 border-l border-[#edf2f7] pl-3 sm:flex">
+              <Link href="/profile" className="hidden items-center gap-2 border-l border-[#edf2f7] pl-3 sm:flex">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
                   RK
                 </div>
@@ -307,7 +309,7 @@ export default function DashboardPage() {
                 </div>
 
                 <ChevronDown className="h-3.5 w-3.5 text-[#7087a0]" />
-              </button>
+              </Link>
             </div>
           </div>
         </header>
@@ -447,9 +449,9 @@ export default function DashboardPage() {
                   </h2>
                 </div>
 
-                <button className="text-[10px] font-semibold text-blue-600">
+                <Link href="/explore-map" className="text-[10px] font-semibold text-blue-600">
                   View All
-                </button>
+                </Link>
               </div>
 
               <div className="grid gap-3 md:grid-cols-[1fr_150px]">
@@ -577,6 +579,7 @@ export default function DashboardPage() {
                   return (
                     <button
                       key={category.name}
+                      onClick={() => router.push(`/report?category=${encodeURIComponent(category.name)}`)}
                       className={`flex aspect-square flex-col items-center justify-center rounded-xl border transition hover:-translate-y-0.5 hover:shadow-sm ${categoryStyle(
                         category.type
                       )}`}
@@ -605,9 +608,9 @@ export default function DashboardPage() {
                   </h2>
                 </div>
 
-                <button className="text-[10px] font-semibold text-blue-600">
+                <Link href="/notifications" className="text-[10px] font-semibold text-blue-600">
                   View All
-                </button>
+                </Link>
               </div>
 
               <div className="divide-y divide-[#edf2f7]">
@@ -664,9 +667,9 @@ export default function DashboardPage() {
                   </h2>
                 </div>
 
-                <button className="text-[10px] font-semibold text-blue-600">
+                <Link href="/all-complaints" className="text-[10px] font-semibold text-blue-600">
                   View All
-                </button>
+                </Link>
               </div>
 
               {/* Desktop table */}
@@ -772,8 +775,8 @@ export default function DashboardPage() {
                     </h3>
                   </div>
 
-                  <button className="flex items-center gap-1 text-[9px] text-[#7d91a5]">
-                    This Month
+                  <button onClick={() => setStatsPeriod((period) => period === "This Month" ? "All Time" : "This Month")} className="flex items-center gap-1 text-[9px] text-[#7d91a5]">
+                    {statsPeriod}
                     <ChevronDown className="h-3 w-3" />
                   </button>
                 </div>

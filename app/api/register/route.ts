@@ -4,6 +4,13 @@ import { sql } from "@/lib/db";
 
 export async function POST(req: Request) {
   try {
+    if (!sql) {
+      return NextResponse.json(
+        { error: "Database is not configured. Please add DATABASE_URL." },
+        { status: 500 }
+      );
+    }
+
     const { name, email, password } = await req.json();
 
     if (!name || !email || !password) {
