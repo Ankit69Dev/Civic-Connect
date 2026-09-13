@@ -21,6 +21,7 @@ model User {
   statusChanges  IssueStatusHistory[]
   upvotes        IssueUpvote[]
   assignedIssues Issue[]              @relation("AssignedIssues")
+  verifications  IssueVerification[]
   reportedIssues Issue[]              @relation("ReportedIssues")
   notifications  Notification[]
 
@@ -61,6 +62,7 @@ model Issue {
   resolvedAt        DateTime?            @map("resolved_at")
   statusHistory     IssueStatusHistory[]
   upvotes           IssueUpvote[]
+  verifications     IssueVerification[]
   assignedOfficer   User?                @relation("AssignedIssues", fields: [assignedOfficerId], references: [id])
   department        Department           @relation(fields: [departmentId], references: [id])
   reporter          User                 @relation("ReportedIssues", fields: [reporterId], references: [id], onDelete: Cascade)
@@ -162,4 +164,20 @@ model PasswordResetOtp {
 
   @@index([email])
   @@map("password_reset_otps")
+}
+
+model IssueVerification {
+  id         String   @id @default(uuid())
+  issueId    String   @map("issue_id")
+  userId     String   @map("user_id")
+  verified   Boolean
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, userId])
+  @@index([issueId])
+  @@index([userId])
+  @@map("issue_verifications")
 }
