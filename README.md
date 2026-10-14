@@ -93,10 +93,10 @@ CivicConnect aims to transform everyday civic concerns into meaningful action th
 
 ---
 
-\<div align="center">
+<div align="center">
 
 **Made with ❤️ for stronger communities.**
 
 ### CivicConnect — Report. Verify. Resolve.
 
-\</div>
+</div>
