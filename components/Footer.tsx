@@ -32,17 +32,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          <div>
-            <p className="text-[12.5px] font-semibold uppercase tracking-wide text-white/40">
-              Company
-            </p>
-            <ul className="mt-4 space-y-2.5 text-[13.5px]">
-              <li><a href="#" className="hover:text-white">About us</a></li>
-              <li><a href="#" className="hover:text-white">For departments</a></li>
-              <li><a href="#" className="hover:text-white">Careers</a></li>
-              <li><a href="#" className="hover:text-white">Privacy policy</a></li>
-            </ul>
-          </div>
+          
 
           <div>
             <p className="text-[12.5px] font-semibold uppercase tracking-wide text-white/40">
@@ -50,13 +40,13 @@ export default function Footer() {
             </p>
             <ul className="mt-4 space-y-2.5 text-[13.5px]">
               <li className="flex items-center gap-2">
-                <Mail className="h-3.5 w-3.5" /> hello@civicconnect.in
+                <Mail className="h-3.5 w-3.5" /> sparkbyte.co.tech@gmail.com
               </li>
               <li className="flex items-center gap-2">
-                <Phone className="h-3.5 w-3.5" /> +91 98765 43210
+                <Phone className="h-3.5 w-3.5" /> +91 7488973708
               </li>
               <li className="flex items-center gap-2">
-                <MapPin className="h-3.5 w-3.5" /> New Delhi, India
+                <MapPin className="h-3.5 w-3.5" /> Ranchi, India
               </li>
             </ul>
           </div>

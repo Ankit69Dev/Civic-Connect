@@ -2,26 +2,16 @@
 
 import {
   AlertCircle,
-  BarChart3,
-  Bell,
   CheckCircle2,
-  ChevronDown,
   Clock,
   FileText,
-  Home,
-  LogOut,
-  Menu,
-  Search,
-  Settings,
-  ShieldCheck,
-  Users,
-  X,
   MapPin,
+  X,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
-import { signOut } from "next-auth/react";
 import Link from "next/link";
+import AdminNavbar from "@/components/AdminNavbar";
 
 type Issue = {
   id: string;
@@ -75,7 +65,6 @@ const initialData: AdminData = {
 };
 
 export default function AdminPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [data, setData] =
@@ -191,11 +180,6 @@ export default function AdminPage() {
     }
   }
 
-  async function handleSignOut() {
-    await signOut({
-      callbackUrl: "/login",
-    });
-  }
 
   const adminName =
     data.admin.name?.split(" ")[0] ||
@@ -204,248 +188,15 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
 
-      {/* MOBILE OVERLAY */}
-
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
-          onClick={() =>
-            setSidebarOpen(false)
-          }
-        />
-      )}
-
-      {/* SIDEBAR */}
-
-      <aside
-        className={`fixed left-0 top-0 z-50 flex h-screen w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-300 ${
-          sidebarOpen
-            ? "translate-x-0"
-            : "-translate-x-full lg:translate-x-0"
-        }`}
-      >
-
-        {/* LOGO */}
-
-        <div className="flex h-20 items-center justify-between border-b border-slate-200 px-6">
-
-          <div>
-            <h1 className="text-xl font-bold">
-              CivicConnect
-            </h1>
-
-            <p className="text-xs text-slate-500">
-              Admin Control Center
-            </p>
-          </div>
-
-          <button
-            onClick={() =>
-              setSidebarOpen(false)
-            }
-            className="rounded-lg p-2 hover:bg-slate-100 lg:hidden"
-            aria-label="Close sidebar"
-          >
-            <X size={20} />
-          </button>
-
-        </div>
-
-        {/* NAVIGATION */}
-
-        <nav className="flex-1 space-y-2 px-4 py-6">
-
-          <AdminNavItem
-            icon={<Home size={19} />}
-            label="Dashboard"
-            href="/admin"
-            active
-            onClick={() =>
-              setSidebarOpen(false)
-            }
-          />
-
-          <AdminNavItem
-            icon={<FileText size={19} />}
-            label="All Issues"
-            href="/admin/issues"
-            onClick={() =>
-              setSidebarOpen(false)
-            }
-          />
-
-          <AdminNavItem
-            icon={<Users size={19} />}
-            label="Citizens"
-            href="/admin/users"
-            onClick={() =>
-              setSidebarOpen(false)
-            }
-          />
-
-          <AdminNavItem
-            icon={<BarChart3 size={19} />}
-            label="Analytics"
-            href="/admin/analytics"
-            onClick={() =>
-              setSidebarOpen(false)
-            }
-          />
-
-          <AdminNavItem
-            icon={<Bell size={19} />}
-            label="Notifications"
-            href="/admin/notifications"
-            onClick={() =>
-              setSidebarOpen(false)
-            }
-          />
-
-          <AdminNavItem
-            icon={<Settings size={19} />}
-            label="Settings"
-            href="/admin/settings"
-            onClick={() =>
-              setSidebarOpen(false)
-            }
-          />
-
-        </nav>
-
-        {/* ADMIN PROFILE */}
-
-        <div className="border-t border-slate-200 p-4">
-
-          <div className="mb-3 flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
-              {adminName
-                .charAt(0)
-                .toUpperCase()}
-            </div>
-
-            <div className="min-w-0">
-
-              <p className="truncate text-sm font-semibold">
-                {data.admin.name ||
-                  "Administrator"}
-              </p>
-
-              <p className="truncate text-xs text-slate-500">
-                Administrator
-              </p>
-
-            </div>
-
-          </div>
-
-          <button
-            onClick={handleSignOut}
-            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-100"
-          >
-            <LogOut size={18} />
-            Sign Out
-          </button>
-
-        </div>
-
-      </aside>
+      {/* SHARED ADMIN NAVIGATION */}
+      <AdminNavbar />
 
       {/* MAIN */}
-
       <main className="lg:ml-72">
+        <div className="p-4 pt-20 sm:p-6 sm:pt-20 lg:p-8 lg:pt-8">
 
-        {/* TOP BAR */}
 
-        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur-md sm:px-6 lg:px-8">
-
-          <div className="flex items-center gap-4">
-
-            <button
-              onClick={() =>
-                setSidebarOpen(true)
-              }
-              className="rounded-xl p-2 hover:bg-slate-100 lg:hidden"
-              aria-label="Open sidebar"
-            >
-              <Menu size={22} />
-            </button>
-
-            <div className="hidden w-80 items-center gap-3 rounded-xl bg-slate-100 px-4 py-2.5 md:flex">
-
-              <Search
-                size={18}
-                className="text-slate-400"
-              />
-
-              <input
-                type="text"
-                placeholder="Search issues..."
-                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-              />
-
-            </div>
-
-          </div>
-
-          <div className="flex items-center gap-4">
-
-            <div className="hidden items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600 sm:flex">
-
-              <ShieldCheck size={15} />
-
-              Admin Mode
-
-            </div>
-
-            <button
-              className="relative rounded-xl p-2.5 hover:bg-slate-100"
-              aria-label="Notifications"
-            >
-
-              <Bell size={21} />
-
-              <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-red-500" />
-
-            </button>
-
-            <div className="flex items-center gap-3">
-
-              <div className="hidden text-right sm:block">
-
-                <p className="text-sm font-semibold">
-                  {data.admin.name ||
-                    "Administrator"}
-                </p>
-
-                <p className="text-xs text-slate-500">
-                  Admin
-                </p>
-
-              </div>
-
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
-                {adminName
-                  .charAt(0)
-                  .toUpperCase()}
-              </div>
-
-              <ChevronDown
-                size={17}
-                className="hidden text-slate-400 sm:block"
-              />
-
-            </div>
-
-          </div>
-
-        </header>
-
-        {/* CONTENT */}
-
-        <div className="p-4 sm:p-6 lg:p-8">
-
-          {/* WELCOME */}
+        {/* WELCOME */}
 
           <section className="mb-8">
 
@@ -883,39 +634,6 @@ export default function AdminPage() {
       )}
 
     </div>
-  );
-}
-
-/* =========================================================
-   NAV ITEM
-========================================================= */
-
-function AdminNavItem({
-  icon,
-  label,
-  href,
-  active = false,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  href: string;
-  active?: boolean;
-  onClick?: () => void;
-}) {
-  return (
-    <Link
-      href={href}
-      onClick={onClick}
-      className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${
-        active
-          ? "bg-slate-900 text-white"
-          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-      }`}
-    >
-      {icon}
-      {label}
-    </Link>
   );
 }
 

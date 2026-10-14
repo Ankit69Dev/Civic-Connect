@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import AdminNavbar from "@/components/AdminNavbar";
 import {
   Search,
   Filter,
@@ -417,7 +418,8 @@ export default function AdminIssuesPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <AdminNavbar />
+      <main className="mx-auto max-w-7xl px-4 py-6 pt-20 sm:px-6 lg:px-8 lg:ml-72 lg:pt-6">
         {/* HEADER */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
